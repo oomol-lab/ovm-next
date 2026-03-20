@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 func (v *machineBuilder) generateRAWDisk(ctx context.Context, rawDiskPath string, givenUUID string) error {
@@ -49,6 +50,7 @@ func (v *machineBuilder) configureContainerRAWDisk(ctx context.Context, diskPath
 	v.withRAWDiskVersionXATTR(version)
 
 	if v.needsDiskRegeneration(ctx, diskPath) {
+		logrus.Infof("removing existing disk: %q", diskPath)
 		if err := os.Remove(diskPath); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -125,6 +127,7 @@ func (v *machineBuilder) needsDiskRegeneration(ctx context.Context, diskPath str
 	stored, _ := xattr.GetXattr(ctx, diskPath, xattrKey)
 	expected := v.DiskXattrs[xattrKey]
 
+	logrus.Infof("stored disk version: %q, expected version: %q", stored, expected)
 	return stored != expected
 }
 

@@ -52,6 +52,8 @@ func StartGuestPodmanService(ctx context.Context, vmc *define.Machine) error {
 			"--log-level", logrus.GetLevel().String(), "system", "service",
 			"--time=0", addr,
 		},
+		Stdout:      StderrWriter(),
+		Stderr:      StderrWriter(),
 		Restart:     true,
 		MaxRetries:  5,
 		RetryDelay:  500 * time.Millisecond,

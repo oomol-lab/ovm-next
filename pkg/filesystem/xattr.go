@@ -80,5 +80,5 @@ func (b xattrManager) GetXattr(ctx context.Context, blkPath string, namespace st
 		return "", fmt.Errorf("getxattr %q on %q: %w (%s)", namespace, blkPath, err, strings.TrimSpace(errMsg.String()))
 	}
 
-	return value.String(), nil
+	return strings.TrimSpace(value.String()), nil
 }

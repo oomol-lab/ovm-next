@@ -39,7 +39,6 @@ type Config struct {
 	SessionID string  `toml:"sessionID,omitempty" json:"sessionID,omitempty"` // session name
 	CPUs      int     `toml:"cpus,omitempty"      json:"cpus,omitempty"`      // 0 → host CPU count
 	MemoryMB  uint64  `toml:"memory_mb,omitempty" json:"memoryMB,omitempty"`  // 0 → host total RAM
-	Rootfs    string  `toml:"rootfs,omitempty"    json:"rootfs,omitempty"`    // empty → built-in Alpine
 
 	// Command specifies the program to run inside the VM (rootfs mode only).
 	Command []string `toml:"command,omitempty"  json:"command,omitempty"`
@@ -75,13 +74,42 @@ func DefaultConfig() *Config {
 
 // --- Chain (fluent) methods ------------------------------------------------
 
-func (c *Config) WithMode(m RunMode) *Config      { c.RunMode = m; return c }
-func (c *Config) WithName(name string) *Config    { c.SessionID = name; return c }
-func (c *Config) WithCPUs(n int) *Config          { c.CPUs = n; return c }
-func (c *Config) WithMemory(mb uint64) *Config    { c.MemoryMB = mb; return c }
-func (c *Config) WithRootfs(path string) *Config  { c.Rootfs = path; return c }
-func (c *Config) WithWorkDir(dir string) *Config  { c.WorkDir = dir; return c }
-func (c *Config) WithNetwork(mode string) *Config { c.Network = mode; return c }
+func (c *Config) WithMode(m RunMode) *Config {
+	if m != "" {
+		c.RunMode = m
+	}
+	return c
+}
+func (c *Config) WithName(name string) *Config {
+	if name != "" {
+		c.SessionID = name
+	}
+	return c
+}
+func (c *Config) WithCPUs(n int) *Config {
+	if n > 0 {
+		c.CPUs = n
+	}
+	return c
+}
+func (c *Config) WithMemory(mb uint64) *Config {
+	if mb > 0 {
+		c.MemoryMB = mb
+	}
+	return c
+}
+func (c *Config) WithWorkDir(dir string) *Config {
+	if dir != "" {
+		c.WorkDir = dir
+	}
+	return c
+}
+func (c *Config) WithNetwork(mode string) *Config {
+	if mode != "" {
+		c.Network = mode
+	}
+	return c
+}
 func (c *Config) WithContainerDisk(path string) *Config {
 	if path != "" {
 		c.ContainerDisk = path
@@ -132,8 +160,13 @@ func (c *Config) WithEventReporter(reporters ...EventReporter) *Config {
 	}
 	return c
 }
-func (c *Config) WithProxy(enable bool) *Config     { c.Proxy = enable; return c }
-func (c *Config) WithLogLevel(level string) *Config { c.LogLevel = level; return c }
+func (c *Config) WithProxy(enable bool) *Config { c.Proxy = enable; return c }
+func (c *Config) WithLogLevel(level string) *Config {
+	if level != "" {
+		c.LogLevel = level
+	}
+	return c
+}
 func (c *Config) WithLogTo(path string) *Config {
 	if path != "" {
 		c.LogTo = path
@@ -142,21 +175,30 @@ func (c *Config) WithLogTo(path string) *Config {
 }
 
 func (c *Config) WithCommand(bin string, args ...string) *Config {
-	c.Command = append([]string{bin}, args...)
+	if bin != "" {
+		c.Command = append([]string{bin}, args...)
+	}
 	return c
 }
 
 func (c *Config) WithEnv(kvs ...string) *Config {
-	c.Env = append(c.Env, kvs...)
+	if len(kvs) > 0 {
+		c.Env = append(c.Env, kvs...)
+	}
 	return c
 }
 
 func (c *Config) WithMount(specs ...string) *Config {
-	c.Mounts = append(c.Mounts, specs...)
+	if len(specs) > 0 {
+		c.Mounts = append(c.Mounts, specs...)
+	}
 	return c
 }
 
 func (c *Config) WithDisk(specs ...string) *Config {
+	if len(specs) == 0 {
+		return c
+	}
 	if c.Disks == nil {
 		c.Disks = make(map[string]string)
 	}

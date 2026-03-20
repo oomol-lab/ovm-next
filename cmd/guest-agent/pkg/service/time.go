@@ -26,6 +26,7 @@ func SyncRTCTime(ctx context.Context) error {
 		Cmd:        BusyboxPath(),
 		Args:       args,
 		Stderr:     StderrWriter(),
+		Stdout:     StderrWriter(),
 		Restart:    true,
 		RetryDelay: 5 * time.Second,
 	})
