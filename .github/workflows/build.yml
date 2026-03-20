@@ -7,16 +7,12 @@ on:
     tags:
       - 'v**'
     branches:
-      - main
-      - dev
-      - refactor
+      - ovm-next
     paths-ignore:
       - '**/*.md'
   pull_request:
     branches:
-      - main
-      - dev
-      - refactor
+      - ovm-next
     paths-ignore:
       - '**/*.md'
 
