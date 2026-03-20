@@ -43,7 +43,7 @@ func newMachineBuilder(mode define.RunMode) *machineBuilder {
 	}
 }
 
-func (v *machineBuilder) setupWorkspace(workspacePath string) error {
+func (v *machineBuilder) setupWorkspace(ctx context.Context, workspacePath string) error {
 	if workspacePath == "" {
 		return fmt.Errorf("workspace path is empty")
 	}
@@ -72,26 +72,32 @@ func (v *machineBuilder) setupWorkspace(workspacePath string) error {
 
 	v.pathMgr = newMachinePathManager(v.WorkspaceDir)
 
-	return v.lock()
+	return v.lock(ctx)
 }
 
-func (v *machineBuilder) lock() error {
+func (v *machineBuilder) lock(ctx context.Context) error {
 	// Lock file lives OUTSIDE the workspace so that the clean helper can
 	// acquire it after the workspace is deleted, preventing it from
 	// removing a workspace that belongs to a new session with the same name.
+	errChan := make(chan error, 1)
 	fileLock := flock.New(v.WorkspaceDir + ".lock")
 
-	locked, err := fileLock.TryLock()
-	if err != nil {
-		return fmt.Errorf("get lock failed: %w", err)
-	}
+	go func() {
+		logrus.Infof("try to lock workspace %q", v.WorkspaceDir)
+		errChan <- fileLock.Lock()
+	}()
 
-	if !locked {
-		return fmt.Errorf("session %q is locked by another instance", v.WorkspaceDir)
+	select {
+	case <-ctx.Done():
+		_ = fileLock.Unlock()
+		return ctx.Err()
+	case err := <-errChan:
+		if err == nil {
+			logrus.Infof("workspace %q locked", v.WorkspaceDir)
+			v.fileLock = fileLock
+		}
+		return err
 	}
-
-	v.fileLock = fileLock
-	return nil
 }
 
 func (v *machineBuilder) setupLogLevel(level, customLogPath string) (*os.File, error) {
@@ -440,7 +446,7 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 	cleanup = cleanupCallbacks.DoClean
 	defer cleanupCallbacks.CleanIfErr(&retErr)
 
-	if err := mBuilder.setupWorkspace(workspacePath); err != nil {
+	if err := mBuilder.setupWorkspace(ctx, workspacePath); err != nil {
 		return nil, nil, fmt.Errorf("setup workspace: %w", err)
 	}
 	cleanupCallbacks.AddFunc(func() { _ = mBuilder.fileLock.Unlock(); _ = os.Remove(workspacePath + ".lock") })
