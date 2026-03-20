@@ -45,7 +45,15 @@ func (v *machineBuilder) generateRAWDisk(ctx context.Context, rawDiskPath string
 	return nil
 }
 
-func (v *machineBuilder) configureContainerRAWDisk(ctx context.Context, diskPath string) error {
+func (v *machineBuilder) configureContainerRAWDisk(ctx context.Context, diskPath string, version string) error {
+	v.withRAWDiskVersionXATTR(version)
+
+	if v.needsDiskRegeneration(ctx, diskPath) {
+		if err := os.Remove(diskPath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
 	if _, err := os.Stat(diskPath); err != nil {
 		if err = v.generateRAWDisk(ctx, diskPath, define.ContainerDiskUUID); err != nil {
 			return fmt.Errorf("failed to generate container storage raw disk: %w", err)
@@ -110,40 +118,14 @@ func (v *machineBuilder) withUserProvidedStorageRAWDisk(ctx context.Context, dis
 	return nil
 }
 
-func (v *machineBuilder) resetOrReuseContainerRAWDisk(ctx context.Context, diskPath string, containerDiskVersionXATTR string) error {
-	resetBool, err := v.withRAWDiskVersionXATTR(containerDiskVersionXATTR).needsDiskRegeneration(ctx, diskPath)
-	if err != nil {
-		return fmt.Errorf("failed to check RAW disk needs to regenerate: %w", err)
-	}
-
-	if resetBool {
-		if err := os.Remove(diskPath); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-
-		if err := v.configureContainerRAWDisk(ctx, diskPath); err != nil {
-			return fmt.Errorf("failed to attach container storage raw disk: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (v *machineBuilder) needsDiskRegeneration(ctx context.Context, diskPath string) (bool, error) {
+func (v *machineBuilder) needsDiskRegeneration(ctx context.Context, diskPath string) bool {
 	xattrKey := define.XattrDiskVersionKey
 	xattr := filesystem.NewXattrManager()
 
 	stored, _ := xattr.GetXattr(ctx, diskPath, xattrKey)
 	expected := v.DiskXattrs[xattrKey]
-	if expected == "" {
-		return false, fmt.Errorf("disk xattr %q not configured on machineBuilder", xattrKey)
-	}
 
-	if stored != expected {
-		return true, nil
-	}
-
-	return false, nil
+	return stored != expected
 }
 
 func (v *machineBuilder) withRAWDiskVersionXATTR(value string) *machineBuilder {

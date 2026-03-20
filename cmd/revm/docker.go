@@ -5,7 +5,6 @@ import (
 	"linuxvm/pkg/define"
 	"linuxvm/pkg/eventreporter"
 	"linuxvm/pkg/librevm"
-	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
@@ -94,11 +93,14 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		cfg.WithEventReporter(eventreporter.NewLegacyReporter(u, librevm.ModeContainer))
 	}
 
+	if u := command.String(define.FlagOVMContainerDiskVersion); u != "" {
+		cfg.WithContainerDiskVersion(u)
+	}
+
 	// Apply init vmconfig preferences if present.
 	if initCfg, err := librevm.LoadFile(vmConfigFilePath); err == nil {
 		logrus.Infof("[apply-vmconfig] apply vmconfig prefer from: %q", vmConfigFilePath)
 		cfg.MergeFrom(initCfg)
-		_ = os.Remove(vmConfigFilePath)
 	}
 
 	vm, err := librevm.New(cfg)

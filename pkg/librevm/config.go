@@ -66,9 +66,10 @@ type Config struct {
 // Zero-value resource fields (CPUs, MemoryMB) are resolved at VM creation time.
 func DefaultConfig() *Config {
 	return &Config{
-		Network:  "gvisor",
-		LogLevel: "info",
-		WorkDir:  "/",
+		Network:              "gvisor",
+		LogLevel:             "info",
+		WorkDir:              "/",
+		ContainerDiskVersion: "v1",
 	}
 }
 
