@@ -36,7 +36,6 @@ func main() {
 	app.Commands = []*cli.Command{
 		&initCommand,
 		&AttachConsole,
-		&startRootfs,
 		&startDocker,
 	}
 

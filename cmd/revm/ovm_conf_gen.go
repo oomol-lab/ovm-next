@@ -71,7 +71,7 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 	cfg := librevm.Config{
 		RunMode: librevm.ModeCfgGen,
 		Disks: map[string]string{
-			filepath.Join(baseDir, "data", "source.ext4"): "44f7d1c0-122c-4402-a20e-c1166cbbad6d",
+			filepath.Join(baseDir, "data", "source.ext4"): define.OVMSourceDiskUUID,
 		},
 		LogTo:                   filepath.Join(baseDir, "logs", "ovm.log"),
 		ExportSSHKeyPrivateFile: filepath.Join(baseDir, "data", "sshkey"),
@@ -83,7 +83,7 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 		Mounts:                  cmd.StringSlice(define.FlagOVMVolume),
 		CPUs:                    cmd.Int(define.FlagCPUS),
 		MemoryMB:                cmd.Uint64(define.FlagMemoryInMB),
-		SessionID:               "oomol-studio-19452",
+		SessionID:               define.DefaultOVMSessionID,
 	}
 
 	if u := cmd.String(define.FlagOVMReportURL); u != "" {

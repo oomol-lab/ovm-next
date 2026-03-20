@@ -1,18 +1,15 @@
 package define
 
 const (
-	FlagDockerMode = "docker"
-	FlagChroot     = "chroot"
-	FlagAttachMode = "attach"
+	SubCommandRun  = "start"
+	SubCommandStop = "attach"
 
 	FlagLogLevel                = "log-level"
 	FlagLogTo                   = "log-to"
 	FlagCPUS                    = "cpus"
 	FlagRawDisk                 = "raw-disk"
 	FlagMount                   = "mount"
-	FlagRootfs                  = "rootfs"
 	FlagUsingSystemProxy        = "system-proxy"
-	FlagWorkDir                 = "workdir"
 	FlagMemoryInMB              = "memory"
 	FlagPTY                     = "pty"
 	FlagEnvs                    = "envs"
@@ -45,4 +42,7 @@ const (
 	FlagOVMName                 = "name"
 	FlagOVMWorkspace            = "workspace"
 	FlagOVMReportURL            = "report-url"
+
+	DefaultOVMSessionID = "oomol-studio-19452"
+	OVMSourceDiskUUID   = "44f7d1c0-122c-4402-a20e-c1166cbbad6d"
 )

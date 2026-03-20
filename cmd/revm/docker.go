@@ -12,11 +12,8 @@ import (
 )
 
 var startDocker = cli.Command{
-	Name:                      define.FlagDockerMode,
-	Aliases:                   []string{"start"}, // for compatibility ovm-js ovm init
-	Usage:                     "start a Linux VM with the built-in container runtime",
-	UsageText:                 define.FlagDockerMode + " [flags]",
-	Description:               "boot a Linux microVM using libkrun with the built-in rootfs and podman container runtime; exposes a Podman-compatible API socket on the host",
+	Name:                      define.SubCommandRun,
+	Usage:                     "start ovm podman engine",
 	DisableSliceFlagSeparator: true,
 	Flags: []cli.Flag{
 		cpuFlag,
@@ -69,8 +66,8 @@ var startDocker = cli.Command{
 }
 
 func dockerLifeCycle(_ context.Context, command *cli.Command) error {
-	// 屏蔽上层 ctx，防止上游 ctx 导致 vm 意外退出
-	// 如果要安全停止虚拟机，应该呼叫 cancel()
+	// Shield the upper-level ctx to prevent upstream ctx from causing unexpected VM exit
+	// To safely stop the virtual machine, cancel() should be called
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -95,11 +92,6 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 	// if legacy event reporter is set, use it
 	if u := command.String(define.FlagOVMReportURL); u != "" {
 		cfg.WithEventReporter(eventreporter.NewLegacyReporter(u, librevm.ModeContainer))
-	}
-
-	if u := command.String(define.FlagReportEvents); u != "" {
-		cfg.Reporters = nil
-		cfg.WithEventReporter(eventreporter.NewV1(u, librevm.ModeContainer))
 	}
 
 	// Apply init vmconfig preferences if present.

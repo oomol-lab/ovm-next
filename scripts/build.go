@@ -115,7 +115,7 @@ func newBuilder(dirty bool) *builder {
 }
 
 func (b *builder) initEnv() {
-	logrus.Infof("target=revm os=%s arch=%s workspace=%s", b.goos, b.goarch, b.workspace)
+	logrus.Infof("target=ovm os=%s arch=%s workspace=%s", b.goos, b.goarch, b.workspace)
 
 	removeAll(b.outDir)
 	mkdirAll(b.binDir)
@@ -193,10 +193,10 @@ func (b *builder) fetchDeps() {
 func (b *builder) buildTarget() {
 	version := runQuiet("unknown", "git", "-C", b.workspace, "describe", "--tags", "--abbrev=0")
 	commit := runQuiet("unknown", "git", "-C", b.workspace, "rev-parse", "--short", "HEAD")
-	logrus.Infof("building revm (%s-%s)", version, commit)
+	logrus.Infof("building ovm (%s-%s)", version, commit)
 
 	ldflags := fmt.Sprintf("-X linuxvm/pkg/define.Version=%s -X linuxvm/pkg/define.CommitID=%s", version, commit)
-	out := filepath.Join(b.binDir, "revm")
+	out := filepath.Join(b.binDir, "ovm")
 	src := filepath.Join(b.workspace, "cmd", "revm")
 
 	if b.goos == "darwin" {
@@ -253,26 +253,26 @@ func (b *builder) relocateLibsDarwin() {
 		run(nil, "codesign", "--force", "-s", "-", p)
 	}
 
-	// Fix revm libkrun references (must happen before codesign)
-	revm := filepath.Join(b.binDir, "revm")
-	run(nil, "install_name_tool", "-change", "libkrun.1.dylib", "@loader_path/../lib/libkrun.1.dylib", revm)
-	run(nil, "install_name_tool", "-change", "libkrunfw.5.dylib", "@loader_path/../lib/libkrunfw.5.dylib", revm)
+	// Fix ovmBinPath libkrun references (must happen before codesign)
+	ovmBinPath := filepath.Join(b.binDir, "ovm")
+	run(nil, "install_name_tool", "-change", "libkrun.1.dylib", "@loader_path/../lib/libkrun.1.dylib", ovmBinPath)
+	run(nil, "install_name_tool", "-change", "libkrunfw.5.dylib", "@loader_path/../lib/libkrunfw.5.dylib", ovmBinPath)
 
 	// Sign target binary
-	ent := filepath.Join(b.workspace, "revm.entitlements")
-	run(nil, "codesign", "--entitlements", ent, "--force", "-s", "-", revm)
+	ent := filepath.Join(b.workspace, "ovm.entitlements")
+	run(nil, "codesign", "--entitlements", ent, "--force", "-s", "-", ovmBinPath)
 }
 
 func (b *builder) relocateLibsLinux() {
 	lib := b.libDir
-	bin := filepath.Join(b.binDir, "revm")
+	ovmBinPath := filepath.Join(b.binDir, "ovm")
 
 	// Copy shared libs
 	run(nil, "sh", "-c", fmt.Sprintf("cp -av %s/libkrun/lib64/*.so* '%s/'", b.depsDir, lib))
 	run(nil, "sh", "-c", fmt.Sprintf("cp -av %s/libkrunfw/lib64/*.so* '%s/'", b.depsDir, lib))
 
 	// Collect .so deps from target binary
-	b.collectSoDeps(bin)
+	b.collectSoDeps(ovmBinPath)
 
 	// Copy dynamic linker
 	if b.goarch == "aarch64" || b.goarch == "arm64" {
@@ -282,7 +282,7 @@ func (b *builder) relocateLibsLinux() {
 	}
 
 	// Patch rpath
-	run(nil, "patchelf", "--set-rpath", "$ORIGIN/../lib", bin)
+	run(nil, "patchelf", "--set-rpath", "$ORIGIN/../lib", ovmBinPath)
 	sofiles, _ := filepath.Glob(filepath.Join(lib, "libkrun*.so.*.*"))
 	for _, sf := range sofiles {
 		run(nil, "patchelf", "--set-rpath", "$ORIGIN", sf)
@@ -354,7 +354,7 @@ func (b *builder) lint() {
 
 func (b *builder) packageTar() {
 	logrus.Info("packaging")
-	tarName := fmt.Sprintf("revm-%s-%s.tar.zst", b.goos, b.goarch)
+	tarName := fmt.Sprintf("ovm-%s-%s.tar.zst", b.goos, b.goarch)
 	tarPath := filepath.Join(b.workspace, tarName)
 	run(nil, "bsdtar", "--zstd", "-cf", tarPath, "-C", b.outDir, ".")
 
