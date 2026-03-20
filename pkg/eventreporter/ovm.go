@@ -16,6 +16,10 @@ type legacyReporter struct {
 // NewLegacyReporter creates a legacy EventReporter that sends GET /notify requests.
 // Returns nil if the endpoint is invalid.
 func NewLegacyReporter(endpoint string, runMode librevm.RunMode) librevm.EventReporter {
+	if endpoint == "" {
+		return nil
+	}
+
 	client := newClient(endpoint)
 	if client == nil {
 		return nil
