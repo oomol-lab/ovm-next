@@ -3,6 +3,7 @@ package define
 const (
 	SubCommandRun  = "start"
 	SubCommandStop = "attach"
+	SubCommandInit = "init"
 
 	FlagLogLevel                = "log-level"
 	FlagLogTo                   = "log-to"

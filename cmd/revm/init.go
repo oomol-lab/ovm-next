@@ -13,11 +13,9 @@ import (
 )
 
 var initCommand = cli.Command{
-	Hidden:  true,
-	Name:    "cfg",
-	Aliases: []string{"init"}, // for compatibility ovm-js ovm init
-	Usage:   "generate VM preferences config file",
-	Action:  generateOVMCfgAction,
+	Name:   define.SubCommandInit,
+	Usage:  "generate VM preferences config file",
+	Action: generateOVMCfgAction,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name: define.FlagCPUS,
