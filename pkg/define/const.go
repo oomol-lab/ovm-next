@@ -6,9 +6,6 @@ import (
 
 const (
 	ContainerMode RunMode = iota
-	RootFsMode
-	// OVMode As the underlying virtual machine running mode for Oomol Studio, this mode bundles many default business logic
-	OVMode
 )
 
 type RunMode int32
@@ -17,10 +14,6 @@ func (m RunMode) String() string {
 	switch m {
 	case ContainerMode:
 		return "container"
-	case RootFsMode:
-		return "rootfs"
-	case OVMode:
-		return "oomol-studio"
 	default:
 		return "unknown"
 	}
@@ -39,17 +32,6 @@ const (
 	GuestHiddenBinDir       = "/.bin"
 	VMConfigFilePathInGuest = "/vmconfig.json"
 	HostDomainInGVPNet      = "host.containers.internal"
-
-	LibexecDirName = "libexec"
-
-	SSHPrivateKeyFileName = "private.key"
-	SSHPublicKeyFileName  = "public.key"
-
-	DropBearRuntimeDir = "/run/dropbear"
-
-	DropBearPrivateKeyPath = DropBearRuntimeDir + "/" + SSHPrivateKeyFileName
-
-	DropBearPidFile = DropBearRuntimeDir + "/dropbear.pid"
 
 	ContainerStorageMountPoint = "/var/lib/containers"
 

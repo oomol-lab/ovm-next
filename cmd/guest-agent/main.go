@@ -166,57 +166,7 @@ func run(ctx context.Context, _ *cli.Command) error {
 		service.WaitAndShutdown()
 	}()
 
-	// 5. Run mode-specific services
-	switch vmc.RunMode {
-	case define.RootFsMode.String():
-		return userRootfsMode(ctx, vmc)
-	case define.ContainerMode.String():
-		return dockerEngineMode(ctx, vmc)
-	default:
-		return fmt.Errorf("unsupported mode %q", vmc.RunMode)
-	}
-}
-
-func userRootfsMode(ctx context.Context, vmc *define.Machine) error {
-	logrus.Info("running in rootfs mode")
-
-	if err := service.ConfigureNetwork(ctx, (*machine.Machine)(vmc).GetVirtualNetworkType()); err != nil {
-		return fmt.Errorf("configure network: %w", err)
-	}
-
-	g, ctx := errgroup.WithContext(ctx)
-
-	g.Go(func() error {
-		return service.StartGuestSSHServer(ctx, vmc)
-	})
-
-	g.Go(func() error {
-		return service.SyncRTCTime(ctx)
-	})
-
-	g.Go(func() error {
-		if err := service.DoExecCmdLine(ctx, vmc); err != nil {
-			return err
-		}
-		return CmdlineExitNormal
-	})
-
-	go func() {
-		_ = machine.WaitGuestServiceReady(ctx, vmc)
-	}()
-
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- g.Wait()
-		close(errChan)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return context.Cause(ctx)
-	case err := <-errChan:
-		return err
-	}
+	return dockerEngineMode(ctx, vmc)
 }
 
 func dockerEngineMode(ctx context.Context, vmc *define.Machine) error {

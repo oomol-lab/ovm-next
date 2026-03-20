@@ -187,6 +187,7 @@ func (s *Server) handleLegacyExec(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Command string `json:"command"`
 	}
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
@@ -194,6 +195,7 @@ func (s *Server) handleLegacyExec(w http.ResponseWriter, r *http.Request) {
 	topic := "sess-legacy-" + uuid.NewString()
 	ctx, cancel := context.WithCancel(context.WithValue(r.Context(), ssev2.TopicKey, topic)) //nolint:staticcheck
 	defer cancel()
+	// req.Command must be a valid shell command. Since it is a plain string, you must handle special character escaping yourself
 	go s.executeLegacyCommand(ctx, cancel, topic, req.Command)
 	s.sse.ServeHTTP(w, r.WithContext(ctx))
 }
@@ -223,7 +225,7 @@ func (s *Server) executeLegacyCommand(ctx context.Context, cancel context.Cancel
 	go func() {
 		defer wg.Done()
 		sc := bufio.NewScanner(stdoutR)
-		sc.Buffer(make([]byte, 64*1024), 1<<20)
+		sc.Buffer(make([]byte, 64*1024), 1<<20) // this scanner starts with a 64 KiB buffer and can grow up to 1 MiB
 		for sc.Scan() {
 			s.sse.Publish(topic, ssev2.TypeOut, sc.Text())
 		}

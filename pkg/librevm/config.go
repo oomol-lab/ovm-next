@@ -20,8 +20,6 @@ import (
 type RunMode string
 
 const (
-	// ModeRootfs boots the VM with a rootfs and executes a command.
-	ModeRootfs RunMode = "rootfs"
 	// ModeContainer boots the VM with the built-in container runtime (Podman).
 	ModeContainer RunMode = "docker"
 	ModeCfgGen    RunMode = "cfggen"
@@ -29,7 +27,7 @@ const (
 
 func (m RunMode) IsValid() bool {
 	switch m {
-	case ModeRootfs, ModeContainer:
+	case ModeContainer:
 		return true
 	default:
 		return false
@@ -318,12 +316,6 @@ func validateConfig(cfg Config) error {
 
 	if !cfg.RunMode.IsValid() {
 		return fmt.Errorf("invalid run mode %q", cfg.RunMode)
-	}
-
-	if cfg.RunMode == ModeRootfs {
-		if len(cfg.Command) == 0 || cfg.Command[0] == "" {
-			return fmt.Errorf("rootfs mode requires a non-empty command")
-		}
 	}
 
 	if cfg.MemoryMB < 512 {

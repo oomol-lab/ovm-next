@@ -133,45 +133,6 @@ func (v *machineBuilder) withResources(memoryInMB uint64, cpus uint8) error {
 	return nil
 }
 
-func (v *machineBuilder) setupCmdLine(workdir, bin string, args, envs []string) error {
-	if v.RunMode != define.RootFsMode.String() {
-		return fmt.Errorf("expect run mode %q, but got %q", define.RootFsMode.String(), v.RunMode)
-	}
-
-	if v.RootFS == "" {
-		return fmt.Errorf("rootfs path is empty")
-	}
-
-	if workdir == "" {
-		return fmt.Errorf("workdir path is empty")
-	}
-
-	if bin == "" {
-		return fmt.Errorf("bin path is empty")
-	}
-
-	for _, arg := range args {
-		if strings.Contains(arg, ";") || strings.Contains(arg, "|") ||
-			strings.Contains(arg, "&") || strings.Contains(arg, "`") {
-			return fmt.Errorf("dangerous shell metacharacters in argument: %s", arg)
-		}
-	}
-
-	if v.ProxySetting.Use {
-		envs = append(envs, "http_proxy="+v.ProxySetting.HTTPProxy)
-		envs = append(envs, "https_proxy="+v.ProxySetting.HTTPSProxy)
-	}
-
-	v.Cmdline = define.Cmdline{
-		Bin:     bin,
-		Args:    args,
-		Envs:    envs,
-		WorkDir: workdir,
-	}
-
-	return nil
-}
-
 func (v *machineBuilder) withBuiltInAlpineRootfs(ctx context.Context) error {
 	if v.WorkspaceDir == "" {
 		return fmt.Errorf("workspace path is empty")
@@ -432,8 +393,6 @@ func (v *machineBuilder) applySystemProxy() error {
 func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *define.Machine, cleanup func(), retErr error) {
 	var runMode define.RunMode
 	switch cfg.RunMode {
-	case ModeRootfs:
-		runMode = define.RootFsMode
 	case ModeContainer:
 		runMode = define.ContainerMode
 	default:
@@ -489,43 +448,27 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 	}
 	logrus.Info("preparing rootfs completed")
 
-	switch runMode {
-	case define.RootFsMode:
-		workDir := cfg.WorkDir
-		if workDir == "" {
-			workDir = "/"
-		}
-		bin := cfg.Command[0]
-		var args []string
-		if len(cfg.Command) > 1 {
-			args = cfg.Command[1:]
-		}
-		if err := mBuilder.setupCmdLine(workDir, bin, args, cfg.Env); err != nil {
-			return nil, nil, fmt.Errorf("setup cmdline: %w", err)
-		}
-	case define.ContainerMode:
-		if err := mBuilder.withMountUserHome(ctx); err != nil {
-			return nil, nil, fmt.Errorf("mount user home: %w", err)
-		}
-		if err := mBuilder.configurePodman(ctx); err != nil {
-			return nil, nil, fmt.Errorf("configure podman: %w", err)
-		}
+	if err := mBuilder.withMountUserHome(ctx); err != nil {
+		return nil, nil, fmt.Errorf("mount user home: %w", err)
+	}
+	if err := mBuilder.configurePodman(ctx); err != nil {
+		return nil, nil, fmt.Errorf("configure podman: %w", err)
+	}
 
-		diskPath := mBuilder.pathMgr.GetBuiltInContainerStorageDiskFile()
-		if cfg.ContainerDisk != "" {
-			diskPath = cfg.ContainerDisk
-		}
+	diskPath := mBuilder.pathMgr.GetBuiltInContainerStorageDiskFile()
+	if cfg.ContainerDisk != "" {
+		diskPath = cfg.ContainerDisk
+	}
 
-		if cfg.ContainerDiskVersion != "" {
-			if err := mBuilder.resetOrReuseContainerRAWDisk(ctx, diskPath, cfg.ContainerDiskVersion); err != nil {
-				return nil, nil, fmt.Errorf("check container disk version: %w", err)
-			}
+	if cfg.ContainerDiskVersion != "" {
+		if err := mBuilder.resetOrReuseContainerRAWDisk(ctx, diskPath, cfg.ContainerDiskVersion); err != nil {
+			return nil, nil, fmt.Errorf("check container disk version: %w", err)
 		}
+	}
 
-		logrus.Info("Preparing container storage disk...")
-		if err := mBuilder.configureContainerRAWDisk(ctx, diskPath); err != nil {
-			return nil, nil, fmt.Errorf("setup container disk: %w", err)
-		}
+	logrus.Info("Preparing container storage disk...")
+	if err := mBuilder.configureContainerRAWDisk(ctx, diskPath); err != nil {
+		return nil, nil, fmt.Errorf("setup container disk: %w", err)
 	}
 
 	if len(cfg.Disks) > 0 {

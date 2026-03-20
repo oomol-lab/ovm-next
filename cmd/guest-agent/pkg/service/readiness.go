@@ -67,11 +67,6 @@ func (r *Readiness) IsSSHReady(ctx context.Context) bool {
 }
 
 func (r *Readiness) IsPodmanReady(ctx context.Context) bool {
-	if r.vmc.RunMode == define.RootFsMode.String() {
-		logrus.Info("[readiness] skip IsPodmanReady check")
-		return true
-	}
-
 	ticker := time.NewTicker(define.DefaultTimeTicker)
 	defer ticker.Stop()
 

@@ -148,59 +148,6 @@ func (vm *VM) createUserSymlinks() error {
 	return nil
 }
 
-// RunChroot starts the VM in rootfs mode and blocks until it exits.
-func (vm *VM) RunChroot(ctx context.Context) error {
-	if err := vm.init(ctx); err != nil {
-		return err
-	}
-
-	vm.emit(EventVMStarting, "starting vm in rootfs mode")
-
-	g, ctx := errgroup.WithContext(ctx)
-
-	// Start ignition server
-	g.Go(func() error {
-		return vm.svc.StartIgnitionService(ctx)
-	})
-
-	// Start network stack
-	g.Go(func() error {
-		return vm.svc.StartNetworkStack(ctx)
-	})
-
-	// Start management API
-	g.Go(func() error {
-		return vm.svc.StartMachineManagementAPI(ctx)
-	})
-
-	// Monitor readiness events
-	go vm.monitorReadinessEvents(ctx, false)
-
-	// Monitor for shutdown signals
-	go func() {
-		vm.WaitAndShutdownMachine(ctx, vm.Cancel)
-	}()
-
-	// Wait for services to start
-	svcErrCh := make(chan error, 1)
-	go func() {
-		svcErrCh <- g.Wait()
-		close(svcErrCh)
-	}()
-
-	// Start VM when network is ready
-	select {
-	case <-ctx.Done():
-		return <-svcErrCh
-	case <-vm.machine.Readiness.VNetHostReady:
-		logrus.Infof("boot virtual machine...")
-		err := vm.svc.StartVirtualMachine(ctx)
-		vm.Cancel()
-		<-svcErrCh
-		return err
-	}
-}
-
 // RunDocker starts the VM in container mode and blocks until it exits.
 func (vm *VM) RunDocker(ctx context.Context) error {
 	if err := vm.init(ctx); err != nil {

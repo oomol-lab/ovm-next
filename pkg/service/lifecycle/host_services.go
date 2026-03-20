@@ -35,9 +35,6 @@ func NewHostServices(vmp interfaces.VMMProvider) *Service {
 
 func (s *Service) StartPodmanProxy(ctx context.Context) error {
 	vmc := s.vmp.GetVMConfig()
-	if vmc.RunMode != define.ContainerMode.String() {
-		return nil
-	}
 
 	switch vmc.VirtualNetworkMode {
 	case define.GVISOR:
