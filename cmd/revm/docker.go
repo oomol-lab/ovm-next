@@ -74,16 +74,16 @@ var startDocker = cli.Command{
 			Usage: "custom Unix socket path for the host-side VM management API; defaults to /tmp/<session_id>/socks/vmctl.sock",
 		},
 		&cli.StringFlag{
-			Name:  define.FlagSSHKeyDir,
-			Usage: "directory to symlink the generated SSH key pair (key and key.pub) into; keys are always created inside the session directory",
-		},
-		&cli.StringFlag{
 			Name:  define.FlagExportSSHKeyPrivateFile,
 			Usage: "file path to symlink the generated SSH private key to",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagExportSSHKeyPublicFile,
 			Usage: "file path to symlink the generated SSH public key to",
+		},
+		&cli.StringFlag{
+			Name:  define.FlagContainerDiskVersion,
+			Usage: "version tag for the container disk; used to detect and upgrade the disk format when the version changes",
 		},
 
 		// legacy hidden flags set
@@ -104,7 +104,7 @@ var startDocker = cli.Command{
 		},
 		&cli.StringFlag{
 			Name:   define.FlagOVMReportURL,
-			Usage:  "legacy event, for ovm-js compatibility, use --report-events-to instead",
+			Usage:  "legacy event, for ovm-js compatibility, use --report-events instead",
 			Hidden: true,
 		},
 	},
@@ -129,13 +129,12 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		WithDisk(command.StringSlice(define.FlagRawDisk)...).
 		WithMount(command.StringSlice(define.FlagMount)...).
 		WithContainerDisk(command.String(define.FlagContainerDisk)).
-		WithContainerDiskVersion(command.String(define.FlagOVMContainerDiskVersion)).
+		WithContainerDiskVersion(command.String(define.FlagContainerDiskVersion)).
 		WithPodmanProxyAPIFile(command.String(define.FlagPodmanProxyAPIFile)).
 		WithManageAPIFile(command.String(define.FlagManageAPIFile)).
-		WithSSHKeyDir(command.String(define.FlagSSHKeyDir)).
 		WithExportSSHKeyPrivateFile(command.String(define.FlagExportSSHKeyPrivateFile)).
 		WithExportSSHKeyPublicFile(command.String(define.FlagExportSSHKeyPublicFile)).
-		WithEventReporter(eventreporter.NewLegacyReporter(command.String(define.FlagOVMReportURL), librevm.ModeContainer))
+		WithEventReporter(eventreporter.NewLegacyReporter(command.String(define.FlagReportEvents), librevm.ModeContainer))
 
 	// Apply init vmconfig preferences if present.
 	if initCfg, err := librevm.LoadFile(vmConfigFilePath); err == nil {

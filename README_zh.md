@@ -21,14 +21,14 @@ revm start [flags]
 | `--raw-disk` | string[] | | 挂载 ext4 裸磁盘（`<路径>[,uuid]`），可多次指定 |
 | `--mount` | string[] | | VirtIO-FS 共享目录（`/宿主路径:/客户路径[,ro]`），可多次指定 |
 | `--container-disk` | string | | 容器存储用持久化 ext4 磁盘 |
+| `--container-disk-version` | string | | 容器磁盘版本标识，版本变更时触发磁盘格式升级 |
 | `--network` | string | `gvisor` | 虚拟网络：`gvisor`（NAT, 192.168.127.0/24）或 `tsi`（透明套接字拦截） |
 | `--system-proxy` | bool | false | 将 macOS 系统 HTTP/HTTPS 代理转发到客户机 |
 | `--podman-proxy-api-file` | string | `/tmp/<id>/socks/podman-api.sock` | 宿主机侧 Podman API Unix 套接字路径 |
 | `--manage-api-file` | string | `/tmp/<id>/socks/vmctl.sock` | 虚拟机管理 API Unix 套接字路径 |
-| `--ssh-key-dir` | string | | SSH 密钥对符号链接目录 |
-| `--export-ssh-private-key` | string | | SSH 私钥符号链接路径 |
-| `--export-ssh-public-key` | string | | SSH 公钥符号链接路径 |
-| `--report-events-to` | string | | 生命周期事件 HTTP 端点（`unix:///路径` 或 `tcp://地址:端口`） |
+| `--ssh-private-key` | string | | SSH 私钥符号链接路径 |
+| `--ssh-public-key` | string | | SSH 公钥符号链接路径 |
+| `--report-events` | string | | 生命周期事件 HTTP 端点（`unix:///路径` 或 `tcp://地址:端口`） |
 | `--log-level` | string | `info` | 日志级别：trace, debug, info, warn, error, fatal, panic |
 | `--log-to` | string | `/tmp/<id>/logs/vm.log` | 自定义日志文件路径 |
 
