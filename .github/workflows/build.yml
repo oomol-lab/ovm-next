@@ -1,20 +1,11 @@
 permissions:
   contents: write
 
-name: build.yml
+name: release.yml
 on:
-  push:
-    tags:
-      - 'v**'
-    branches:
-      - ovm-next
-    paths-ignore:
-      - '**/*.md'
   pull_request:
     branches:
       - ovm-next
-    paths-ignore:
-      - '**/*.md'
 
 jobs:
   build-macos:
@@ -75,24 +66,3 @@ jobs:
             ovm-*.tar.zst
           if-no-files-found: error
           overwrite: true
-
-  release:
-    needs: [build-macos, build-linux]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download all artifacts
-        uses: 'actions/download-artifact@v4'
-        with:
-          pattern: ovm-*
-          merge-multiple: true
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: ovm-*.tar.zst
-          append_body: true
-          draft: false
-          prerelease: false
-          make_latest: true
