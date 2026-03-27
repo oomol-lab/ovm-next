@@ -17,12 +17,12 @@ const (
 	FlagVNetworkType            = "network"
 	FlagSessionID               = "id"
 	FlagContainerDisk           = "container-disk"
+	FlagContainerDiskVersion    = "container-disk-version"
 	FlagPodmanProxyAPIFile      = "podman-proxy-api-file"
 	FlagManageAPIFile           = "manage-api-file"
-	FlagSSHKeyDir               = "ssh-key-dir"
-	FlagExportSSHKeyPrivateFile = "export-ssh-private-key"
-	FlagExportSSHKeyPublicFile  = "export-ssh-public-key"
-	FlagReportEvents            = "report-events-to"
+	FlagExportSSHKeyPrivateFile = "ssh-private-key"
+	FlagExportSSHKeyPublicFile  = "ssh-public-key"
+	FlagReportEvents            = "report-events"
 
 	ContainerDiskUUID = "162cf68f-93c7-49ad-be53-45ed0e9fe42b"
 
@@ -32,18 +32,4 @@ const (
 	KrunStdinPortName  = "krun-stdin"
 	KrunStdoutPortName = "krun-stdout"
 	KrunStderrPortName = "krun-stderr"
-)
-
-const (
-	FlagOVMBoot                 = "boot"
-	FlagOVMBootVersion          = "boot-version"
-	FlagOVMContainerDiskVersion = "data-version"
-	FlagOVMPPID                 = "ppid"
-	FlagOVMVolume               = "volume"
-	FlagOVMName                 = "name"
-	FlagOVMWorkspace            = "workspace"
-	FlagOVMReportURL            = "report-url"
-
-	DefaultOVMSessionID = "oomol-studio-19452"
-	OVMSourceDiskUUID   = "44f7d1c0-122c-4402-a20e-c1166cbbad6d"
 )

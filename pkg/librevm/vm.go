@@ -12,7 +12,6 @@ import (
 	sshsvc "linuxvm/pkg/service/ssh"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"syscall"
@@ -130,18 +129,13 @@ func (vm *VM) createUserSymlinks() error {
 			return fmt.Errorf("vmctl socket: %w", err)
 		}
 	}
-	if cfg.SSHKeyDir != "" {
-		if err := createSymlink(filepath.Dir(p.GetSSHPrivateKeyFile()), cfg.SSHKeyDir); err != nil {
-			return fmt.Errorf("ssh key dir: %w", err)
-		}
-	}
-	if cfg.ExportSSHKeyPrivateFile != "" {
-		if err := createSymlink(p.GetSSHPrivateKeyFile(), cfg.ExportSSHKeyPrivateFile); err != nil {
+	if cfg.SSHKeyPrivateFileSymbolLinks != "" {
+		if err := createSymlink(p.GetSSHPrivateKeyFile(), cfg.SSHKeyPrivateFileSymbolLinks); err != nil {
 			return fmt.Errorf("ssh private key: %w", err)
 		}
 	}
-	if cfg.ExportSSHKeyPublicFile != "" {
-		if err := createSymlink(p.GetSSHPrivateKeyFile()+".pub", cfg.ExportSSHKeyPublicFile); err != nil {
+	if cfg.SSHKeyPublicFileSymbolLinks != "" {
+		if err := createSymlink(p.GetSSHPrivateKeyFile()+".pub", cfg.SSHKeyPublicFileSymbolLinks); err != nil {
 			return fmt.Errorf("ssh public key: %w", err)
 		}
 	}

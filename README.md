@@ -21,14 +21,14 @@ Boots a microVM running a Podman-compatible container engine. The VM lifecycle i
 | `--raw-disk` | string[] | | Attach ext4 disk (`<path>[,uuid]`), repeatable |
 | `--mount` | string[] | | VirtIO-FS shared directory (`/host:/guest[,ro]`), repeatable |
 | `--container-disk` | string | | Persistent ext4 disk for container storage |
+| `--container-disk-version` | string | | Version tag for the container disk; triggers disk format upgrade when changed |
 | `--network` | string | `gvisor` | Virtual network: `gvisor` (NAT via 192.168.127.0/24) or `tsi` (transparent socket interception) |
 | `--system-proxy` | bool | false | Forward macOS system HTTP/HTTPS proxy to guest |
 | `--podman-proxy-api-file` | string | `/tmp/<id>/socks/podman-api.sock` | Unix socket for host-side Podman API |
 | `--manage-api-file` | string | `/tmp/<id>/socks/vmctl.sock` | Unix socket for VM management API |
-| `--ssh-key-dir` | string | | Directory to symlink generated SSH key pair into |
-| `--export-ssh-private-key` | string | | Symlink path for generated SSH private key |
-| `--export-ssh-public-key` | string | | Symlink path for generated SSH public key |
-| `--report-events-to` | string | | HTTP endpoint for lifecycle events (`unix:///path` or `tcp://host:port`) |
+| `--ssh-private-key` | string | | Symlink path for generated SSH private key |
+| `--ssh-public-key` | string | | Symlink path for generated SSH public key |
+| `--report-events` | string | | HTTP endpoint for lifecycle events (`unix:///path` or `tcp://host:port`) |
 | `--log-level` | string | `info` | Log verbosity: trace, debug, info, warn, error, fatal, panic |
 | `--log-to` | string | `/tmp/<id>/logs/vm.log` | Custom log file path |
 

@@ -18,16 +18,17 @@ var initCommand = cli.Command{
 	Action: generateOVMCfgAction,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
-			Name: define.FlagCPUS,
+			Name: define.FlagOVMCPUS,
 		},
 		&cli.Uint64Flag{
-			Name: define.FlagMemoryInMB,
+			Name: define.FlagOVMMemoryInMB,
 		},
 		&cli.StringFlag{
 			Name: define.FlagOVMWorkspace,
 		},
 		&cli.StringFlag{
-			Name: define.FlagOVMBoot,
+			Name:   define.FlagOVMBoot,
+			Hidden: true,
 		},
 		&cli.StringFlag{
 			Name: define.FlagOVMBootVersion,
@@ -48,7 +49,7 @@ var initCommand = cli.Command{
 			Name: define.FlagOVMName,
 		},
 		&cli.StringFlag{
-			Name:  define.FlagLogLevel,
+			Name:  define.FlagOVMLogLevel,
 			Value: "info",
 		},
 	},
@@ -71,17 +72,17 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 		Disks: map[string]string{
 			filepath.Join(baseDir, "data", "source.ext4"): define.OVMSourceDiskUUID,
 		},
-		LogTo:                   filepath.Join(baseDir, "logs", "ovm.log"),
-		ExportSSHKeyPrivateFile: filepath.Join(baseDir, "data", "sshkey"),
-		ExportSSHKeyPublicFile:  filepath.Join(baseDir, "data", "sshkey.pub"),
-		ContainerDisk:           filepath.Join(baseDir, "data", "data.img"),
-		PodmanProxyAPIFile:      filepath.Join(baseDir, "socks", "podman-api.sock"),
-		ManageAPIFile:           filepath.Join(baseDir, "socks", "ovm_restapi.socks"), // typo, but do not change the name of ovm_restapi.socks
-		ContainerDiskVersion:    cmd.String(define.FlagOVMContainerDiskVersion),
-		Mounts:                  cmd.StringSlice(define.FlagOVMVolume),
-		CPUs:                    cmd.Int(define.FlagCPUS),
-		MemoryMB:                cmd.Uint64(define.FlagMemoryInMB),
-		SessionID:               define.DefaultOVMSessionID,
+		LogTo:                        filepath.Join(baseDir, "logs", "ovm.log"),
+		SSHKeyPrivateFileSymbolLinks: filepath.Join(baseDir, "data", "sshkey"),
+		SSHKeyPublicFileSymbolLinks:  filepath.Join(baseDir, "data", "sshkey.pub"),
+		ContainerDisk:                filepath.Join(baseDir, "data", "data.img"),
+		PodmanProxyAPIFile:           filepath.Join(baseDir, "socks", "podman-api.sock"),
+		ManageAPIFile:                filepath.Join(baseDir, "socks", "ovm_restapi.socks"), // typo, but do not change the name of ovm_restapi.socks
+		ContainerDiskVersion:         cmd.String(define.FlagOVMContainerDiskVersion),
+		Mounts:                       cmd.StringSlice(define.FlagOVMVolume),
+		CPUs:                         cmd.Int(define.FlagOVMCPUS),
+		MemoryMB:                     cmd.Uint64(define.FlagOVMMemoryInMB),
+		SessionID:                    define.DefaultOVMSessionID,
 	}
 
 	if u := cmd.String(define.FlagOVMReportURL); u != "" {
