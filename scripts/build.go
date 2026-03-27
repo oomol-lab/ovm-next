@@ -225,42 +225,62 @@ func (b *builder) relocateLibsDarwin() {
 	}
 	removeAll(filepath.Join(lib, "pkgconfig"))
 
-	// install_name_tool rewrites
-	type rewrite struct{ dylib, old, new string }
-	rewrites := []rewrite{
-		{"libkrun.1.dylib", hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
-		{"libkrun.1.dylib", hp + "/opt/virglrenderer/lib/libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
-		{"libkrun.1.dylib", hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-		{"libkrunfw.5.dylib", hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
-		{"libkrunfw.5.dylib", hp + "/opt/virglrenderer/lib/libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
-		{"libkrunfw.5.dylib", hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-		{"libvirglrenderer.1.dylib", hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
-		{"libvirglrenderer.1.dylib", hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-	}
-	for _, r := range rewrites {
-		exec.Command("install_name_tool", "-change", r.old, r.new, filepath.Join(lib, r.dylib)).Run()
-	}
-
-	// Fix install names and re-sign
-	type idSign struct{ dylib, id string }
-	for _, is := range []idSign{
-		{"libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
-		{"libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
-		{"libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-	} {
-		p := filepath.Join(lib, is.dylib)
-		run(nil, "install_name_tool", "-id", is.id, p)
-		run(nil, "codesign", "--force", "-s", "-", p)
+	// codesign helper: signs with identity if MACOS_CODESIGN_IDENTITY is set, otherwise ad-hoc
+	codesign := func(path string, entitlements string) {
+		args := []string{"codesign", "--force"}
+		if v := os.Getenv("MACOS_CODESIGN_IDENTITY"); v != "" {
+			logrus.Infof("codesigning with identity %s", v)
+			args = append(args, "--sign", v, "--options=runtime", "--timestamp")
+		} else {
+			// cannot gdb attach when codesign with --options=runtime, so do not pass --options=runtime
+			args = append(args, "--sign", "-")
+		}
+		if entitlements != "" {
+			args = append(args, "--entitlements", entitlements)
+		}
+		run(nil, append(args, path)...)
 	}
 
-	// Fix ovmBinPath libkrun references (must happen before codesign)
+	// Rewrite dependency paths, fix install names, and re-sign
+	type dylibFixup struct {
+		dylib   string
+		changes [][2]string // {old, new} pairs for install_name_tool -change
+	}
+	fixups := []dylibFixup{
+		{"libkrun.1.dylib", [][2]string{
+			{hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
+			{hp + "/opt/virglrenderer/lib/libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
+			{hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
+		}},
+		{"libkrunfw.5.dylib", [][2]string{
+			{hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
+			{hp + "/opt/virglrenderer/lib/libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
+			{hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
+		}},
+		{"libvirglrenderer.1.dylib", [][2]string{
+			{hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
+			{hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
+		}},
+		{"libepoxy.0.dylib", nil},
+		{"libMoltenVK.dylib", nil},
+	}
+	for _, f := range fixups {
+		p := filepath.Join(lib, f.dylib)
+		for _, c := range f.changes {
+			run(nil, "install_name_tool", "-change", c[0], c[1], p)
+		}
+		run(nil, "install_name_tool", "-id", "@loader_path/"+f.dylib, p)
+		codesign(p, "")
+	}
+
+	// Fix ovm binary libkrun references (must happen before codesign)
 	ovmBinPath := filepath.Join(b.binDir, "ovm")
-	run(nil, "install_name_tool", "-change", "libkrun.1.dylib", "@loader_path/../lib/libkrun.1.dylib", ovmBinPath)
-	run(nil, "install_name_tool", "-change", "libkrunfw.5.dylib", "@loader_path/../lib/libkrunfw.5.dylib", ovmBinPath)
+	for _, name := range []string{"libkrun.1.dylib", "libkrunfw.5.dylib"} {
+		run(nil, "install_name_tool", "-change", name, "@loader_path/../lib/"+name, ovmBinPath)
+	}
 
 	// Sign target binary
-	ent := filepath.Join(b.workspace, "ovm.entitlements")
-	run(nil, "codesign", "--entitlements", ent, "--force", "-s", "-", ovmBinPath)
+	codesign(ovmBinPath, filepath.Join(b.workspace, "ovm.entitlements"))
 }
 
 func (b *builder) relocateLibsLinux() {
@@ -373,6 +393,12 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	logrus.SetFormatter(&logrus.TextFormatter{
+		ForceColors:   true,
+		FullTimestamp: true,
+		TimestampFormat: "2006-01-02 15:04:05",
+	})
 
 	if *verbose {
 		logrus.SetLevel(logrus.DebugLevel)
