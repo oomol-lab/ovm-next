@@ -241,35 +241,48 @@ func (b *builder) relocateLibsDarwin() {
 		run(nil, append(args, path)...)
 	}
 
-	// Rewrite dependency paths, fix install names, and re-sign
+	// Rewrite dependency paths, fix install names, and re-sign.
+	//
+	// Why setID matters: libkrun loads libkrunfw at runtime via dlopen("libkrunfw.5.dylib")
+	// using a bare name. dyld matches dlopen names against the LC_ID_DYLIB of already-loaded
+	// libraries. If we rewrite libkrunfw's id to "@loader_path/libkrunfw.5.dylib", the bare
+	// name no longer matches and dlopen fails with "Couldn't find or load libkrunfw.5.dylib".
+	// Therefore libkrun/libkrunfw must keep their bare install names (setID=false).
+	// Homebrew libs (libepoxy, virglrenderer, MoltenVK) have absolute Homebrew paths as their
+	// id and must be rewritten to @loader_path so they can be found from our bundled lib/ dir.
 	type dylibFixup struct {
 		dylib   string
 		changes [][2]string // {old, new} pairs for install_name_tool -change
+		setID   bool        // if true, set install name to @loader_path/<dylib>
 	}
 	fixups := []dylibFixup{
+		// libkrun/libkrunfw: keep bare install name so dlopen("libkrunfw.5.dylib") matches
 		{"libkrun.1.dylib", [][2]string{
 			{hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
 			{hp + "/opt/virglrenderer/lib/libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
 			{hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-		}},
+		}, false},
 		{"libkrunfw.5.dylib", [][2]string{
 			{hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
 			{hp + "/opt/virglrenderer/lib/libvirglrenderer.1.dylib", "@loader_path/libvirglrenderer.1.dylib"},
 			{hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-		}},
+		}, false},
+		// Homebrew libs: rewrite id from absolute Homebrew path to @loader_path
 		{"libvirglrenderer.1.dylib", [][2]string{
 			{hp + "/opt/libepoxy/lib/libepoxy.0.dylib", "@loader_path/libepoxy.0.dylib"},
 			{hp + "/opt/molten-vk/lib/libMoltenVK.dylib", "@loader_path/libMoltenVK.dylib"},
-		}},
-		{"libepoxy.0.dylib", nil},
-		{"libMoltenVK.dylib", nil},
+		}, true},
+		{"libepoxy.0.dylib", nil, true},
+		{"libMoltenVK.dylib", nil, true},
 	}
 	for _, f := range fixups {
 		p := filepath.Join(lib, f.dylib)
 		for _, c := range f.changes {
 			run(nil, "install_name_tool", "-change", c[0], c[1], p)
 		}
-		run(nil, "install_name_tool", "-id", "@loader_path/"+f.dylib, p)
+		if f.setID {
+			run(nil, "install_name_tool", "-id", "@loader_path/"+f.dylib, p)
+		}
 		codesign(p, "")
 	}
 
@@ -395,8 +408,8 @@ func main() {
 	flag.Parse()
 
 	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:   true,
-		FullTimestamp: true,
+		ForceColors:     true,
+		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
