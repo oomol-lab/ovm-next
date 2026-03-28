@@ -1,4 +1,4 @@
-# revm
+# ovm
 
 [libkrun](https://github.com/containers/libkrun) 驱动的轻量级 Linux 微虚拟机管理器。在 macOS/arm64 和 Linux/(arm64|amd64) 上启动 Linux 客户机，支持 Podman 兼容容器引擎。
 
@@ -7,7 +7,7 @@
 ### `start` — 启动虚拟机与 Podman 引擎
 
 ```
-revm start [flags]
+ovm start [flags]
 ```
 
 启动一个运行 Podman 兼容容器引擎的微虚拟机。进程退出时虚拟机随之关闭。
@@ -28,7 +28,7 @@ revm start [flags]
 | `--manage-api-file` | string | `/tmp/<id>/socks/vmctl.sock` | 虚拟机管理 API Unix 套接字路径 |
 | `--ssh-private-key` | string | | SSH 私钥符号链接路径 |
 | `--ssh-public-key` | string | | SSH 公钥符号链接路径 |
-| `--report-events` | string | | 生命周期事件 HTTP 端点（`unix:///路径` 或 `tcp://地址:端口`） |
+| `--report-url` | string | | 生命周期事件 HTTP 端点（`unix:///路径` 或 `tcp://地址:端口`） |
 | `--log-level` | string | `info` | 日志级别：trace, debug, info, warn, error, fatal, panic |
 | `--log-to` | string | `/tmp/<id>/logs/vm.log` | 自定义日志文件路径 |
 
@@ -36,21 +36,21 @@ revm start [flags]
 
 ```bash
 # 4 核 2 GB 内存启动
-revm start --cpus 4 --memory 2048 --id my-session
+ovm start --cpus 4 --memory 2048 --id my-session
 
 # 只读挂载宿主目录并附加数据盘
-revm start --id dev \
+ovm start --id dev \
   --mount /home/user/src:/workspace,ro \
   --raw-disk /var/lib/data.img
 
 # 转发 macOS 系统代理
-revm start --id dev --system-proxy
+ovm start --id dev --system-proxy
 ```
 
 ### `attach` — 连接到运行中的虚拟机
 
 ```
-revm attach [--pty] <session-name> [-- <command> [args...]]
+ovm attach [--pty] <session-name> [-- <command> [args...]]
 ```
 
 通过 SSH 连接到已运行的虚拟机会话。会话名称对应 `/tmp/<name>`。
@@ -64,13 +64,13 @@ revm attach [--pty] <session-name> [-- <command> [args...]]
 
 ```bash
 # 交互式 shell
-revm attach --pty my-session
+ovm attach --pty my-session
 
 # 执行单条命令
-revm attach my-session -- ls -la /workspace
+ovm attach my-session -- ls -la /workspace
 
 # 执行多参数命令
-revm attach my-session -- podman ps -a
+ovm attach my-session -- podman ps -a
 ```
 
 ## 平台支持
