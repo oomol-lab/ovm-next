@@ -48,7 +48,3 @@ func (p *machinePathManager) GetLogsDir() string {
 func (p *machinePathManager) GetRootfsDir() string {
 	return filepath.Join(p.workspaceDir, "rootfs")
 }
-
-func (p *machinePathManager) GetBuiltInContainerStorageDiskFile() string {
-	return filepath.Join(p.workspaceDir, "raw-disk", "container-storage.ext4")
-}

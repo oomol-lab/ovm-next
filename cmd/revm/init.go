@@ -31,10 +31,11 @@ var initCommand = cli.Command{
 			Hidden: true,
 		},
 		&cli.StringFlag{
-			Name: define.FlagOVMBootVersion,
+			Name:   define.FlagOVMBootVersion,
+			Hidden: true,
 		},
 		&cli.StringFlag{
-			Name: define.FlagOVMContainerDiskVersion,
+			Name: define.FlagOVMDataDiskVersion,
 		},
 		&cli.StringFlag{
 			Name: define.FlagOVMReportURL,
@@ -67,18 +68,30 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	var varDiskVersion string
+	varDiskVersion = cmd.String(define.FlagOVMDataDiskVersion)
+	if varDiskVersion == "" {
+		varDiskVersion = define.DefaultRawDiskVersion
+	}
+
 	cfg := librevm.Config{
 		RunMode: librevm.ModeCfgGen,
-		Disks: map[string]string{
-			filepath.Join(baseDir, "data", "source.ext4"): define.OVMSourceDiskUUID,
+		ExternalDisks: []librevm.RawDisk{
+			{
+				RawDiskPath: filepath.Join(baseDir, "data", "source.ext4"),
+				UUID:        define.OVMSourceDiskUUID,
+				Version:     define.DefaultRawDiskVersion,
+			},
+		},
+		VarDisk: librevm.RawDisk{
+			RawDiskPath: filepath.Join(baseDir, "data", "data.img"),
+			Version:     varDiskVersion,
 		},
 		LogTo:                        filepath.Join(baseDir, "logs", "ovm.log"),
 		SSHKeyPrivateFileSymbolLinks: filepath.Join(baseDir, "data", "sshkey"),
 		SSHKeyPublicFileSymbolLinks:  filepath.Join(baseDir, "data", "sshkey.pub"),
-		ContainerDisk:                filepath.Join(baseDir, "data", "data.img"),
 		PodmanProxyAPIFile:           filepath.Join(baseDir, "socks", "podman-api.sock"),
 		ManageAPIFile:                filepath.Join(baseDir, "socks", "ovm_restapi.socks"), // typo, but do not change the name of ovm_restapi.socks
-		ContainerDiskVersion:         cmd.String(define.FlagOVMContainerDiskVersion),
 		Mounts:                       cmd.StringSlice(define.FlagOVMVolume),
 		CPUs:                         cmd.Int(define.FlagOVMCPUS),
 		MemoryMB:                     cmd.Uint64(define.FlagOVMMemoryInMB),

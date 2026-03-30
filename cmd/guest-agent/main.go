@@ -155,10 +155,14 @@ func run(ctx context.Context, _ *cli.Command) error {
 	// Now that /sys is available, setup guest-logs port for logging and signal handling
 	setupGuestLogAndSignalPort(ctx)
 
-	// 4. Mount block devices and virtiofs
-	if err := service.MountBlockDevices(ctx, vmc); err != nil {
+	if err := service.MountVarDiskDlk(ctx, vmc); err != nil {
+		return fmt.Errorf("mount var disk dlk: %w", err)
+	}
+
+	if err := service.MountExternalBlockDevices(ctx, vmc); err != nil {
 		return fmt.Errorf("mount block devices: %w", err)
 	}
+
 	if err := service.MountVirtiofs(ctx, vmc); err != nil {
 		return fmt.Errorf("mount virtiofs: %w", err)
 	}
@@ -170,8 +174,6 @@ func run(ctx context.Context, _ *cli.Command) error {
 }
 
 func dockerEngineMode(ctx context.Context, vmc *define.Machine) error {
-	logrus.Info("starting container engine")
-
 	// Configure network before starting services — it's a prerequisite,
 	// not a parallel task. If DHCP fails (e.g. eth0 not yet created by VMM),
 	// we don't want to cancel already-running services.
@@ -182,14 +184,17 @@ func dockerEngineMode(ctx context.Context, vmc *define.Machine) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
+		logrus.Info("starting container engine")
 		return service.StartGuestPodmanService(ctx, vmc)
 	})
 
 	g.Go(func() error {
+		logrus.Info("starting ssh server")
 		return service.StartGuestSSHServer(ctx, vmc)
 	})
 
 	g.Go(func() error {
+		logrus.Info("starting syncing time loop")
 		return service.SyncRTCTime(ctx)
 	})
 

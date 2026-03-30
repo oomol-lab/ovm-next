@@ -31,7 +31,6 @@ type MachineSpec struct {
 	IgnitionServerCfg IgnitionServerCfg `json:"ignitionServerCfg,omitempty"`
 	GuestAgentCfg     GuestAgentCfg     `json:"guestAgentCfg,omitempty"`
 	Cmdline           Cmdline           `json:"cmdline,omitempty"` // 仅仅在 rootfs mode 有意义
-	DiskXattrs        map[string]string `json:"diskXattrs,omitempty"`
 	ProxySetting      ProxySetting      `json:"systemProxy,omitempty"`
 
 	TTY bool `json:"TTY"`
@@ -127,11 +126,10 @@ type IgnitionServerCfg struct {
 
 // BlkDev represents the configuration of a data disk, including its file system type, path, and mount point.
 type BlkDev struct {
-	FsType    string `json:"fsType,omitempty"`
-	UUID      string `json:"UUID,omitempty"`
-	Path      string `json:"path,omitempty"`
-	MountTo   string `json:"mountTo,omitempty"`
-	SizeInMib uint64 `json:"sizeInMIB,omitempty"`
+	FsType  string `json:"fsType,omitempty"`
+	UUID    string `json:"UUID,omitempty"`
+	Path    string `json:"path,omitempty"`
+	MountTo string `json:"mountTo,omitempty"`
 }
 
 type PodmanInfo struct {
