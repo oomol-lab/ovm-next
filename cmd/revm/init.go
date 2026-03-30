@@ -68,8 +68,7 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	var varDiskVersion string
-	varDiskVersion = cmd.String(define.FlagOVMDataDiskVersion)
+	varDiskVersion := cmd.String(define.FlagOVMDataDiskVersion)
 	if varDiskVersion == "" {
 		varDiskVersion = define.DefaultRawDiskVersion
 	}
@@ -86,6 +85,8 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 		VarDisk: librevm.RawDisk{
 			RawDiskPath: filepath.Join(baseDir, "data", "data.img"),
 			Version:     varDiskVersion,
+			UUID:        define.VarDataDiskUUID,
+			Mnt:         define.VarDiskMountPoint,
 		},
 		LogTo:                        filepath.Join(baseDir, "logs", "ovm.log"),
 		SSHKeyPrivateFileSymbolLinks: filepath.Join(baseDir, "data", "sshkey"),

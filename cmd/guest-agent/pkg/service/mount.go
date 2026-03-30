@@ -205,55 +205,55 @@ func MountVirtiofs(ctx context.Context, vmc *define.Machine) error {
 	return nil
 }
 
-func MountVarDiskDlk(ctx context.Context, vmc *define.Machine) error {
-	if len(vmc.BlkDevs) == 0 {
-		logrus.Debug("no block devices will be mounted, skip")
+func mountBlockDevice(ctx context.Context, mnt *Mnt, skipIfMounted bool) error {
+	if skipIfMounted && IsMounted(mnt.Target) {
+		logrus.Infof("mount point %s already mounted, skip", mnt.Target)
 		return nil
 	}
 
-	for _, dataDiskMnt := range vmc.BlkDevs {
-		mnt := &Mnt{
-			Source: dataDiskMnt.Path,
-			Opts:   "rw,discard",
-			UUID:   dataDiskMnt.UUID,
-			Type:   dataDiskMnt.FsType,
-			Target: dataDiskMnt.MountTo,
-		}
-
-		if mnt.UUID == define.VarDataDiskUUID {
-			logrus.Infof("mounting block device %s to %s", mnt.Source, mnt.Target)
-			if err := mnt.Mount(ctx, UUIDAction); err != nil {
-				return fmt.Errorf("mount block device %s: %w", mnt.Source, err)
-			}
-		}
+	logrus.Infof("mounting block device %s to %s", mnt.Source, mnt.Target)
+	if err := mnt.Mount(ctx, UUIDAction); err != nil {
+		return fmt.Errorf("mount block device %s: %w", mnt.Source, err)
 	}
-
 	return nil
 }
 
-func MountExternalBlockDevices(ctx context.Context, vmc *define.Machine) error {
+func MountBlockDevices(ctx context.Context, vmc *define.Machine) error {
 	if len(vmc.BlkDevs) == 0 {
 		logrus.Debug("no block devices will be mounted, skip")
 		return nil
 	}
 
-	for _, dataDiskMnt := range vmc.BlkDevs {
+	var varDisk *Mnt
+	external := make([]*Mnt, 0, len(vmc.BlkDevs))
+
+	for _, disk := range vmc.BlkDevs {
 		mnt := &Mnt{
-			Source: dataDiskMnt.Path,
+			Source: disk.Path,
 			Opts:   "rw,discard",
-			UUID:   dataDiskMnt.UUID,
-			Type:   dataDiskMnt.FsType,
-			Target: dataDiskMnt.MountTo,
+			UUID:   disk.UUID,
+			Type:   disk.FsType,
+			Target: disk.MountTo,
 		}
 
-		if IsMounted(mnt.Target) {
-			logrus.Infof("mount point %s already mounted, skip", mnt.Target)
+		if mnt.UUID == define.VarDataDiskUUID {
+			varDisk = mnt
 			continue
 		}
+		external = append(external, mnt)
+	}
 
-		logrus.Infof("mounting block device %s to %s", mnt.Source, mnt.Target)
-		if err := mnt.Mount(ctx, UUIDAction); err != nil {
-			return fmt.Errorf("mount block device %s: %w", mnt.Source, err)
+	if varDisk == nil {
+		return fmt.Errorf("var disk %q not found in block device list", define.VarDataDiskUUID)
+	}
+
+	if err := mountBlockDevice(ctx, varDisk, false); err != nil {
+		return err
+	}
+
+	for _, mnt := range external {
+		if err := mountBlockDevice(ctx, mnt, true); err != nil {
+			return err
 		}
 	}
 

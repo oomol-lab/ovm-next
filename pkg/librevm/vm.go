@@ -68,14 +68,14 @@ func New(cfg *Config) (*VM, error) {
 		return nil, fmt.Errorf("config must not be nil")
 	}
 
-	normalizedCfg, err := NormalizeConfig(*cfg)
+	cfg, err := NormalizeConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("resolve defaults: %w", err)
 	}
 
 	vm := &VM{
-		cfg:        &normalizedCfg,
-		sessionDir: getSessionDir(normalizedCfg.SessionID),
+		cfg:        cfg,
+		sessionDir: getSessionDir(cfg.SessionID),
 	}
 
 	for _, r := range cfg.Reporters {

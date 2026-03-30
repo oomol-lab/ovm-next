@@ -117,9 +117,8 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := librevm.DefaultConfig().
+	cfg := librevm.DefaultConfig(command.String(define.FlagSessionID)).
 		WithMode(librevm.ModeContainer).
-		WithName(command.String(define.FlagSessionID)).
 		WithCPUs(int(command.Int8(define.FlagCPUS))).
 		WithMemory(command.Uint64(define.FlagMemoryInMB)).
 		WithNetwork(command.String(define.FlagVNetworkType)).

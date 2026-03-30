@@ -4,7 +4,6 @@ package librevm
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"linuxvm/pkg/define"
@@ -14,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
@@ -73,11 +71,18 @@ type RawDisk struct {
 
 // DefaultConfig returns a Config with sensible defaults pre-filled.
 // Zero-value resource fields (CPUs, MemoryMB) are resolved at VM creation time.
-func DefaultConfig() *Config {
+func DefaultConfig(id string) *Config {
 	return &Config{
-		Network:  "gvisor",
-		LogLevel: "info",
-		WorkDir:  "/",
+		SessionID: id,
+		Network:   "gvisor",
+		LogLevel:  "info",
+		WorkDir:   "/",
+		VarDisk: RawDisk{
+			RawDiskPath: getDefaultVarDiskPath(id),
+			UUID:        define.VarDataDiskUUID,
+			Mnt:         define.VarDiskMountPoint,
+			Version:     define.DefaultRawDiskVersion,
+		},
 	}
 }
 
@@ -121,60 +126,26 @@ func (c *Config) WithNetwork(mode string) *Config {
 	return c
 }
 
-func normalizeRawDisk(spec RawDisk) RawDisk {
-	if spec.Version == "" {
-		spec.Version = define.DefaultRawDiskVersion
-	}
-
-	if _, err := os.Stat(spec.RawDiskPath); errors.Is(err, os.ErrNotExist) {
-		if spec.UUID == "" {
-			spec.UUID = uuid.NewString()
-		}
-		if spec.Version == "" {
-			spec.Version = define.DefaultRawDiskVersion
-		}
-		if spec.Mnt == "" {
-			spec.Mnt = fmt.Sprintf("/mnt/%s", spec.UUID)
-		}
-	}
-
-	return spec
-}
-
-func normalizeVarDisk(spec RawDisk, sessionID string) RawDisk {
-	if spec.RawDiskPath == "" {
-		spec.RawDiskPath = getDefaultVarDiskPath(sessionID)
-	}
-	if spec.Version == "" {
-		spec.Version = define.DefaultRawDiskVersion
-	}
-	spec.UUID = define.VarDataDiskUUID
-	spec.Mnt = define.VarDiskMountPoint
-	return spec
-}
-
 func (c *Config) WithRawDisk(disks ...RawDisk) *Config {
-	for _, disk := range disks {
-		c.ExternalDisks = append(c.ExternalDisks, normalizeRawDisk(disk))
-	}
+	c.ExternalDisks = append(c.ExternalDisks, disks...)
 	return c
 }
 
 func (c *Config) WithVarDataDisk(path string, varDiskVersion string) *Config {
-	// 默认的 var disk 生成在 <runtime>/<id>/data/data.img
 	if path == "" {
-		path = getDefaultVarDiskPath(c.SessionID)
+		return c
 	}
 
-	// 默认的 var disk 版本为 DefaultRawDiskVersion
 	if varDiskVersion == "" {
 		varDiskVersion = define.DefaultRawDiskVersion
 	}
 
-	c.VarDisk = normalizeVarDisk(RawDisk{
+	c.VarDisk = RawDisk{
 		RawDiskPath: path,
+		UUID:        define.VarDataDiskUUID,
+		Mnt:         define.VarDiskMountPoint,
 		Version:     varDiskVersion,
-	}, c.SessionID)
+	}
 
 	return c
 }
@@ -250,17 +221,17 @@ func (c *Config) WithDisk(specs ...string) *Config {
 	if len(specs) == 0 {
 		return c
 	}
+
 	for _, spec := range specs {
 		diskFile, diskUUID, _ := strings.Cut(spec, ",")
 		c.WithRawDisk(RawDisk{
 			RawDiskPath: diskFile,
-			UUID:        diskUUID,
+			UUID:        strings.TrimSpace(diskUUID),
 		})
 	}
+
 	return c
 }
-
-// --- Loading ---------------------------------------------------------------
 
 // WriteCfg marshals cfg as JSON and writes it to path.
 func (c *Config) WriteCfg(path string) error {
@@ -285,15 +256,15 @@ func (c *Config) MergeFrom(other *Config) {
 		return
 	}
 
+	if other.SessionID != "" {
+		c.SessionID = other.SessionID
+	}
+
 	if other.VarDisk.RawDiskPath != "" {
 		c.VarDisk = other.VarDisk
 	}
 	if len(other.ExternalDisks) > 0 {
 		c.ExternalDisks = other.ExternalDisks
-	}
-
-	if other.SessionID != "" {
-		c.SessionID = other.SessionID
 	}
 
 	if other.CPUs > 0 {
@@ -305,21 +276,27 @@ func (c *Config) MergeFrom(other *Config) {
 	if other.Network != "" {
 		c.Network = other.Network
 	}
+
 	if len(other.Mounts) > 0 {
 		c.Mounts = append(c.Mounts, other.Mounts...)
 	}
+
 	if other.PodmanProxyAPIFile != "" {
 		c.PodmanProxyAPIFile = other.PodmanProxyAPIFile
 	}
+
 	if other.ManageAPIFile != "" {
 		c.ManageAPIFile = other.ManageAPIFile
 	}
+
 	if other.SSHKeyPrivateFileSymbolLinks != "" {
 		c.SSHKeyPrivateFileSymbolLinks = other.SSHKeyPrivateFileSymbolLinks
 	}
+
 	if other.SSHKeyPublicFileSymbolLinks != "" {
 		c.SSHKeyPublicFileSymbolLinks = other.SSHKeyPublicFileSymbolLinks
 	}
+
 	if other.LogTo != "" {
 		c.LogTo = other.LogTo
 	}
@@ -362,10 +339,8 @@ func loadJSON(r io.Reader) (*Config, error) {
 	return &cfg, nil
 }
 
-// --- Normalization & Validation --------------------------------------------
-
 // NormalizeConfig returns a copy of cfg with defaults resolved.
-func NormalizeConfig(cfg Config) (Config, error) {
+func NormalizeConfig(cfg *Config) (*Config, error) {
 	if cfg.CPUs <= 0 {
 		cfg.CPUs = runtime.NumCPU()
 	}
@@ -373,7 +348,7 @@ func NormalizeConfig(cfg Config) (Config, error) {
 	if cfg.MemoryMB == 0 {
 		m, err := mem.VirtualMemory()
 		if err != nil {
-			return Config{}, fmt.Errorf("detect host memory: %w", err)
+			return nil, fmt.Errorf("detect host memory: %w", err)
 		}
 		cfg.MemoryMB = m.Total / 1024 / 1024
 	}
@@ -390,19 +365,14 @@ func NormalizeConfig(cfg Config) (Config, error) {
 		cfg.WorkDir = "/"
 	}
 
-	cfg.VarDisk = normalizeVarDisk(cfg.VarDisk, cfg.SessionID)
-	for i := range cfg.ExternalDisks {
-		cfg.ExternalDisks[i] = normalizeRawDisk(cfg.ExternalDisks[i])
-	}
-
 	if err := validateConfig(cfg); err != nil {
-		return Config{}, err
+		return nil, err
 	}
 
 	return cfg, nil
 }
 
-func validateConfig(cfg Config) error {
+func validateConfig(cfg *Config) error {
 	if cfg.SessionID == "" {
 		return fmt.Errorf("session name must not be empty, flag --id is required")
 	}
@@ -432,22 +402,9 @@ func validateConfig(cfg Config) error {
 	if cfg.VarDisk.RawDiskPath == "" {
 		return fmt.Errorf("var disk path is required")
 	}
+
 	if cfg.VarDisk.Mnt != define.VarDiskMountPoint || cfg.VarDisk.UUID != define.VarDataDiskUUID {
 		return fmt.Errorf("var disk must use mnt=%q and uuid=%q", define.VarDiskMountPoint, define.VarDataDiskUUID)
-	}
-
-	mnts := make(map[string]struct{}, len(cfg.ExternalDisks)+1)
-	mnts[cfg.VarDisk.Mnt] = struct{}{}
-	for _, disk := range cfg.ExternalDisks {
-		if disk.Mnt == define.VarDiskMountPoint || disk.UUID == define.VarDataDiskUUID {
-			return fmt.Errorf("raw disk %q conflicts with var disk; use --data-disk for /var", disk.RawDiskPath)
-		}
-		if disk.Mnt != "" {
-			if _, exists := mnts[disk.Mnt]; exists {
-				return fmt.Errorf("duplicate disk mount point %q", disk.Mnt)
-			}
-			mnts[disk.Mnt] = struct{}{}
-		}
 	}
 
 	return nil
