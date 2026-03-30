@@ -62,8 +62,8 @@ var startDocker = cli.Command{
 			Usage: "session name; used to derive the workspace directory (/tmp/<session_id>); sessions with the same name are mutually exclusive via flock",
 		},
 		&cli.StringFlag{
-			Name:  define.FlagContainerDisk,
-			Usage: "path to a persistent ext4 raw disk image for container storage; auto-created if the file does not exist; defaults to a workspace-local disk if unset",
+			Name:  define.FlagDataDisk,
+			Usage: "path to a persistent ext4 raw disk image for guest /var; auto-created if the file does not exist; defaults to a workspace-local disk if unset",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagPodmanProxyAPIFile,
@@ -82,8 +82,8 @@ var startDocker = cli.Command{
 			Usage: "file path to symlink the generated SSH public key to",
 		},
 		&cli.StringFlag{
-			Name:  define.FlagContainerDiskVersion,
-			Usage: "version tag for the container disk; used to detect and upgrade the disk format when the version changes",
+			Name:  define.FlagDataDiskVersion,
+			Usage: "version tag for the data disk; used to detect and upgrade the disk format when the version changes",
 		},
 
 		// legacy hidden flags set
@@ -128,8 +128,7 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		WithLogTo(command.String(define.FlagLogTo)).
 		WithDisk(command.StringSlice(define.FlagRawDisk)...).
 		WithMount(command.StringSlice(define.FlagMount)...).
-		WithContainerDisk(command.String(define.FlagContainerDisk)).
-		WithContainerDiskVersion(command.String(define.FlagContainerDiskVersion)).
+		WithVarDataDisk(command.String(define.FlagDataDisk), command.String(define.FlagDataDiskVersion)).
 		WithPodmanProxyAPIFile(command.String(define.FlagPodmanProxyAPIFile)).
 		WithManageAPIFile(command.String(define.FlagManageAPIFile)).
 		WithExportSSHKeyPrivateFile(command.String(define.FlagExportSSHKeyPrivateFile)).

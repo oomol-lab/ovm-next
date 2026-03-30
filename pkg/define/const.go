@@ -32,8 +32,8 @@ const (
 	GuestHiddenBinDir       = "/.bin"
 	VMConfigFilePathInGuest = "/vmconfig.json"
 	HostDomainInGVPNet      = "host.containers.internal"
-
-	ContainerStorageMountPoint = "/var/lib/containers"
+	VarDiskMountPoint       = "/var"
+	DefaultRawDiskVersion   = "v1-0-0-ovm"
 
 	DefaultGuestUser = "root"
 

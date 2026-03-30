@@ -205,7 +205,33 @@ func MountVirtiofs(ctx context.Context, vmc *define.Machine) error {
 	return nil
 }
 
-func MountBlockDevices(ctx context.Context, vmc *define.Machine) error {
+func MountVarDiskDlk(ctx context.Context, vmc *define.Machine) error {
+	if len(vmc.BlkDevs) == 0 {
+		logrus.Debug("no block devices will be mounted, skip")
+		return nil
+	}
+
+	for _, dataDiskMnt := range vmc.BlkDevs {
+		mnt := &Mnt{
+			Source: dataDiskMnt.Path,
+			Opts:   "rw,discard",
+			UUID:   dataDiskMnt.UUID,
+			Type:   dataDiskMnt.FsType,
+			Target: dataDiskMnt.MountTo,
+		}
+
+		if mnt.UUID == define.VarDataDiskUUID {
+			logrus.Infof("mounting block device %s to %s", mnt.Source, mnt.Target)
+			if err := mnt.Mount(ctx, UUIDAction); err != nil {
+				return fmt.Errorf("mount block device %s: %w", mnt.Source, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func MountExternalBlockDevices(ctx context.Context, vmc *define.Machine) error {
 	if len(vmc.BlkDevs) == 0 {
 		logrus.Debug("no block devices will be mounted, skip")
 		return nil
@@ -221,7 +247,7 @@ func MountBlockDevices(ctx context.Context, vmc *define.Machine) error {
 		}
 
 		if IsMounted(mnt.Target) {
-			logrus.Debugf("mount point %s already mounted, skip", mnt.Target)
+			logrus.Infof("mount point %s already mounted, skip", mnt.Target)
 			continue
 		}
 

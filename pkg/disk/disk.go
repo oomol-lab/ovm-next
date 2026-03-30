@@ -35,11 +35,17 @@ func (b RawDiskManager) Inspect(ctx context.Context, blkPath string) (*define.Bl
 		return nil, err
 	}
 
+	mntTo := fmt.Sprintf("/mnt/%s", info.UUID)
+
+	if info.UUID == define.VarDataDiskUUID {
+		mntTo = define.VarDiskMountPoint
+	}
+
 	return &define.BlkDev{
 		UUID:    info.UUID,
 		FsType:  info.Type,
 		Path:    blkPath,
-		MountTo: fmt.Sprintf("/mnt/%s", info.UUID),
+		MountTo: mntTo,
 	}, nil
 }
 

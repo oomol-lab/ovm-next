@@ -3,16 +3,18 @@
 package librevm
 
 import (
-	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"linuxvm/pkg/define"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
@@ -45,29 +47,37 @@ type Config struct {
 	WorkDir string   `toml:"workdir,omitempty"  json:"workdir,omitempty"`
 	Env     []string `toml:"env,omitempty"      json:"env,omitempty"`
 
-	Network                      string            `toml:"network,omitempty"         json:"network,omitempty"` // "gvisor" | "tsi"
-	Mounts                       []string          `toml:"mounts,omitempty"          json:"mounts,omitempty"`  // "/host:/guest[,ro]"
-	Disks                        map[string]string `toml:"disks,omitempty"           json:"disks,omitempty"`   // key=disk path, value=UUID (""→auto)
-	ContainerDisk                string            `toml:"container_disk,omitempty"         json:"containerDisk,omitempty"`
-	ContainerDiskVersion         string            `toml:"container_disk_version,omitempty" json:"containerDiskVersion,omitempty"`
-	PodmanProxyAPIFile           string            `toml:"podman_proxy_api_file,omitempty"   json:"podmanProxyAPIFile,omitempty"`
-	ManageAPIFile                string            `toml:"manage_api_file,omitempty"         json:"manageAPIFile,omitempty"`
-	SSHKeyPrivateFileSymbolLinks string            `toml:"ssh_key_private_file_symbol_links,omitempty" json:"SSHKeyPrivateFileSymbolLinks,omitempty"`
-	SSHKeyPublicFileSymbolLinks  string            `toml:"ssh_key_public_file_symbol_links,omitempty" json:"SSHKeyPublicFileSymbolLinks,omitempty"`
-	Proxy                        bool              `toml:"proxy,omitempty"           json:"proxy,omitempty"`
-	LogLevel                     string            `toml:"log_level,omitempty"       json:"logLevel,omitempty"` // default "info"
-	LogTo                        string            `toml:"log_to,omitempty"          json:"logTo,omitempty"`
-	Reporters                    []EventReporter   `toml:"-" json:"-"`
+	// RawDisk describes a host raw disk image and where it should mount inside the guest.
+	// If Mnt is empty, the guest defaults to /mnt/<UUID>.
+	VarDisk       RawDisk   `toml:"varDisk,omitempty"       json:"varDisk,omitempty"`
+	ExternalDisks []RawDisk `toml:"externalDisks,omitempty" json:"externalDisks,omitempty"`
+
+	Network                      string          `toml:"network,omitempty"         json:"network,omitempty"` // "gvisor" | "tsi"
+	Mounts                       []string        `toml:"mounts,omitempty"          json:"mounts,omitempty"`  // "/host:/guest[,ro]"
+	PodmanProxyAPIFile           string          `toml:"podman_proxy_api_file,omitempty"   json:"podmanProxyAPIFile,omitempty"`
+	ManageAPIFile                string          `toml:"manage_api_file,omitempty"         json:"manageAPIFile,omitempty"`
+	SSHKeyPrivateFileSymbolLinks string          `toml:"ssh_key_private_file_symbol_links,omitempty" json:"SSHKeyPrivateFileSymbolLinks,omitempty"`
+	SSHKeyPublicFileSymbolLinks  string          `toml:"ssh_key_public_file_symbol_links,omitempty" json:"SSHKeyPublicFileSymbolLinks,omitempty"`
+	Proxy                        bool            `toml:"proxy,omitempty"           json:"proxy,omitempty"`
+	LogLevel                     string          `toml:"log_level,omitempty"       json:"logLevel,omitempty"` // default "info"
+	LogTo                        string          `toml:"log_to,omitempty"          json:"logTo,omitempty"`
+	Reporters                    []EventReporter `toml:"-" json:"-"`
+}
+
+type RawDisk struct {
+	RawDiskPath string `toml:"raw_disk_path,omitempty" json:"rawDiskPath,omitempty"`
+	UUID        string `toml:"uuid,omitempty"          json:"uuid,omitempty"`
+	Mnt         string `toml:"mnt,omitempty"           json:"mnt,omitempty"`
+	Version     string `toml:"version,omitempty"       json:"version,omitempty"`
 }
 
 // DefaultConfig returns a Config with sensible defaults pre-filled.
 // Zero-value resource fields (CPUs, MemoryMB) are resolved at VM creation time.
 func DefaultConfig() *Config {
 	return &Config{
-		Network:              "gvisor",
-		LogLevel:             "info",
-		WorkDir:              "/",
-		ContainerDiskVersion: "v1",
+		Network:  "gvisor",
+		LogLevel: "info",
+		WorkDir:  "/",
 	}
 }
 
@@ -103,24 +113,72 @@ func (c *Config) WithWorkDir(dir string) *Config {
 	}
 	return c
 }
+
 func (c *Config) WithNetwork(mode string) *Config {
 	if mode != "" {
 		c.Network = mode
 	}
 	return c
 }
-func (c *Config) WithContainerDisk(path string) *Config {
-	if path != "" {
-		c.ContainerDisk = path
+
+func normalizeRawDisk(spec RawDisk) RawDisk {
+	if spec.Version == "" {
+		spec.Version = define.DefaultRawDiskVersion
+	}
+
+	if _, err := os.Stat(spec.RawDiskPath); errors.Is(err, os.ErrNotExist) {
+		if spec.UUID == "" {
+			spec.UUID = uuid.NewString()
+		}
+		if spec.Version == "" {
+			spec.Version = define.DefaultRawDiskVersion
+		}
+		if spec.Mnt == "" {
+			spec.Mnt = fmt.Sprintf("/mnt/%s", spec.UUID)
+		}
+	}
+
+	return spec
+}
+
+func normalizeVarDisk(spec RawDisk, sessionID string) RawDisk {
+	if spec.RawDiskPath == "" {
+		spec.RawDiskPath = getDefaultVarDiskPath(sessionID)
+	}
+	if spec.Version == "" {
+		spec.Version = define.DefaultRawDiskVersion
+	}
+	spec.UUID = define.VarDataDiskUUID
+	spec.Mnt = define.VarDiskMountPoint
+	return spec
+}
+
+func (c *Config) WithRawDisk(disks ...RawDisk) *Config {
+	for _, disk := range disks {
+		c.ExternalDisks = append(c.ExternalDisks, normalizeRawDisk(disk))
 	}
 	return c
 }
-func (c *Config) WithContainerDiskVersion(v string) *Config {
-	if v != "" {
-		c.ContainerDiskVersion = v
+
+func (c *Config) WithVarDataDisk(path string, varDiskVersion string) *Config {
+	// 默认的 var disk 生成在 <runtime>/<id>/data/data.img
+	if path == "" {
+		path = getDefaultVarDiskPath(c.SessionID)
 	}
+
+	// 默认的 var disk 版本为 DefaultRawDiskVersion
+	if varDiskVersion == "" {
+		varDiskVersion = define.DefaultRawDiskVersion
+	}
+
+	c.VarDisk = normalizeVarDisk(RawDisk{
+		RawDiskPath: path,
+		Version:     varDiskVersion,
+	}, c.SessionID)
+
 	return c
 }
+
 func (c *Config) WithPodmanProxyAPIFile(path string) *Config {
 	if path != "" {
 		c.PodmanProxyAPIFile = path
@@ -192,12 +250,12 @@ func (c *Config) WithDisk(specs ...string) *Config {
 	if len(specs) == 0 {
 		return c
 	}
-	if c.Disks == nil {
-		c.Disks = make(map[string]string)
-	}
 	for _, spec := range specs {
 		diskFile, diskUUID, _ := strings.Cut(spec, ",")
-		c.Disks[diskFile] = diskUUID
+		c.WithRawDisk(RawDisk{
+			RawDiskPath: diskFile,
+			UUID:        diskUUID,
+		})
 	}
 	return c
 }
@@ -227,8 +285,11 @@ func (c *Config) MergeFrom(other *Config) {
 		return
 	}
 
-	if other.Disks != nil {
-		c.Disks = other.Disks
+	if other.VarDisk.RawDiskPath != "" {
+		c.VarDisk = other.VarDisk
+	}
+	if len(other.ExternalDisks) > 0 {
+		c.ExternalDisks = other.ExternalDisks
 	}
 
 	if other.SessionID != "" {
@@ -246,12 +307,6 @@ func (c *Config) MergeFrom(other *Config) {
 	}
 	if len(other.Mounts) > 0 {
 		c.Mounts = append(c.Mounts, other.Mounts...)
-	}
-	if other.ContainerDisk != "" {
-		c.ContainerDisk = other.ContainerDisk
-	}
-	if other.ContainerDiskVersion != "" {
-		c.ContainerDiskVersion = other.ContainerDiskVersion
 	}
 	if other.PodmanProxyAPIFile != "" {
 		c.PodmanProxyAPIFile = other.PodmanProxyAPIFile
@@ -335,6 +390,11 @@ func NormalizeConfig(cfg Config) (Config, error) {
 		cfg.WorkDir = "/"
 	}
 
+	cfg.VarDisk = normalizeVarDisk(cfg.VarDisk, cfg.SessionID)
+	for i := range cfg.ExternalDisks {
+		cfg.ExternalDisks[i] = normalizeRawDisk(cfg.ExternalDisks[i])
+	}
+
 	if err := validateConfig(cfg); err != nil {
 		return Config{}, err
 	}
@@ -369,24 +429,26 @@ func validateConfig(cfg Config) error {
 		return fmt.Errorf("network must be \"gvisor\" or \"tsi\", got %q", cfg.Network)
 	}
 
+	if cfg.VarDisk.RawDiskPath == "" {
+		return fmt.Errorf("var disk path is required")
+	}
+	if cfg.VarDisk.Mnt != define.VarDiskMountPoint || cfg.VarDisk.UUID != define.VarDataDiskUUID {
+		return fmt.Errorf("var disk must use mnt=%q and uuid=%q", define.VarDiskMountPoint, define.VarDataDiskUUID)
+	}
+
+	mnts := make(map[string]struct{}, len(cfg.ExternalDisks)+1)
+	mnts[cfg.VarDisk.Mnt] = struct{}{}
+	for _, disk := range cfg.ExternalDisks {
+		if disk.Mnt == define.VarDiskMountPoint || disk.UUID == define.VarDataDiskUUID {
+			return fmt.Errorf("raw disk %q conflicts with var disk; use --data-disk for /var", disk.RawDiskPath)
+		}
+		if disk.Mnt != "" {
+			if _, exists := mnts[disk.Mnt]; exists {
+				return fmt.Errorf("duplicate disk mount point %q", disk.Mnt)
+			}
+			mnts[disk.Mnt] = struct{}{}
+		}
+	}
+
 	return nil
 }
-
-const base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
-func RandomString() string {
-	b := make([]byte, 8)
-	randBytes := make([]byte, len(b))
-	if _, err := rand.Read(randBytes); err != nil {
-		for i := range b {
-			b[i] = base62[i%len(base62)]
-		}
-		return string(b)
-	}
-	for i := range b {
-		b[i] = base62[int(randBytes[i])%len(base62)]
-	}
-	return string(b)
-}
-
-// fuck

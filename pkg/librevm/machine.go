@@ -35,8 +35,7 @@ func newMachineBuilder(mode define.RunMode) *machineBuilder {
 	return &machineBuilder{
 		Machine: define.Machine{
 			MachineSpec: define.MachineSpec{
-				RunMode:    mode.String(),
-				DiskXattrs: map[string]string{},
+				RunMode: mode.String(),
 			},
 			MachineRuntime: define.NewMachineRuntime(),
 		},
@@ -404,6 +403,13 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 	cleanupCallbacks := system.NewCleanUp()
 	cleanup = cleanupCallbacks.DoClean
 	defer cleanupCallbacks.CleanIfErr(&retErr)
+	// Ensure the terminal error is flushed to the active logger (file+stderr)
+	// before cleanup resets output to stderr and closes the file handle.
+	defer func() {
+		if retErr != nil {
+			logrus.Error(retErr)
+		}
+	}()
 
 	if err := mBuilder.setupWorkspace(ctx, workspacePath); err != nil {
 		return nil, nil, fmt.Errorf("setup workspace: %w", err)
@@ -449,21 +455,10 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 		return nil, nil, fmt.Errorf("configure podman: %w", err)
 	}
 
-	diskPath := mBuilder.pathMgr.GetBuiltInContainerStorageDiskFile()
-	if cfg.ContainerDisk != "" {
-		diskPath = cfg.ContainerDisk
+	if err := mBuilder.withConfiguredStorageRAWDisk(ctx, cfg); err != nil {
+		return nil, nil, fmt.Errorf("attach raw disks: %w", err)
 	}
 
-	logrus.Info("Preparing container storage disk...")
-	if err := mBuilder.configureContainerRAWDisk(ctx, diskPath, cfg.ContainerDiskVersion); err != nil {
-		return nil, nil, fmt.Errorf("setup container disk: %w", err)
-	}
-
-	if len(cfg.Disks) > 0 {
-		if err := mBuilder.withUserProvidedStorageRAWDisk(ctx, cfg.Disks); err != nil {
-			return nil, nil, fmt.Errorf("attach raw disks: %w", err)
-		}
-	}
 	if len(cfg.Mounts) > 0 {
 		if err := mBuilder.withUserProvidedMounts(cfg.Mounts); err != nil {
 			return nil, nil, fmt.Errorf("setup mounts: %w", err)
@@ -488,6 +483,10 @@ func (v *machineBuilder) detectTTY() {
 	v.TTY = term.IsTerminal(int(os.Stdin.Fd())) &&
 		term.IsTerminal(int(os.Stdout.Fd())) &&
 		term.IsTerminal(int(os.Stderr.Fd()))
+}
+
+func getDefaultVarDiskPath(id string) string {
+	return filepath.Join(getSessionDir(id), "data", "data.img")
 }
 
 func getSessionDir(name string) string {
