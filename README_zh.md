@@ -19,10 +19,9 @@ ovm start [flags]
 | `--memory`                 | uint64   | 宿主机可用内存                           | 虚拟机内存（MB），最低 512                                     |
 | `--id`                     | string   |                                   | 会话名称，工作目录为 `/tmp/<id>`                               |
 | `--envs`                   | string[] |                                   | 环境变量（`KEY=VALUE`），可多次指定                              |
-| `--raw-disk`               | string[] |                                   | 挂载 ext4 裸磁盘（`<路径>[,uuid]`），可多次指定                     |
+| `--raw-disk`               | string[] |                                   | 挂载 ext4 裸磁盘（`<路径>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`，兼容 `<路径>,<uuid>`），可多次指定 |
 | `--mount`                  | string[] |                                   | VirtIO-FS 共享目录（`/宿主路径:/客户路径[,ro]`），可多次指定             |
-| `--data-disk`              | string   |                                   | 用作 guest `/var` 的持久化 ext4 磁盘；底层 raw disk 仍会先挂载到 `/mnt/<UUID>` |
-| `--data-disk-version`      | string   |                                   | data-disk 的版本标识，版本变更时触发磁盘格式升级                         |
+| `--var-disk`               | string   |                                   | guest `/var` 持久化 ext4 磁盘（`<路径>[,version=<v>]`）                |
 | `--network`                | string   | `gvisor`                          | 虚拟网络：`gvisor`（NAT, 192.168.127.0/24）或 `tsi`（透明套接字拦截） |
 | `--system-proxy`           | bool     | false                             | 将 macOS 系统 HTTP/HTTPS 代理转发到客户机                       |
 | `--podman-api`             | string   | `/tmp/<id>/socks/podman-api.sock` | 宿主机侧 Podman API Unix 套接字路径                           |
@@ -47,6 +46,56 @@ ovm start --id dev \
 # 转发 macOS 系统代理
 ovm start --id dev --system-proxy
 ```
+
+#### `--raw-disk` 用法与行为
+
+用法：
+
+```bash
+--raw-disk <路径>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]
+```
+
+兼容旧格式：
+
+```bash
+--raw-disk <路径>,<uuid>
+```
+
+默认值：
+- `version=define.DefaultRawDiskVersion`
+- `uuid=随机`
+- `mnt=/mnt/<UUID>`
+
+行为矩阵：
+
+| raw-path | version xattr | version 对比 | UUID 规则 | mnt 规则 | 动作 |
+|---|---|---|---|---|---|
+| 不存在 | N/A | N/A | 用户 uuid 或随机 | 用户 mnt 或 `/mnt/<UUID>` | 创建磁盘，写 UUID，写 version xattr |
+| 存在 | 无 | 不参与 bump | 使用盘内 UUID（忽略用户 uuid） | 未指定 mnt 时使用探测挂载点 | 不重建 |
+| 存在 | 有 | 相同 | 使用盘内 UUID（忽略用户 uuid） | 未指定 mnt 时使用探测挂载点 | 不重建 |
+| 存在 | 有 | 不同 | 使用盘内 UUID（忽略用户 uuid） | 未指定 mnt 时使用探测挂载点 | 重建并写最新 version xattr |
+
+#### `--var-disk` 用法与行为
+
+用法：
+
+```bash
+--var-disk <路径>[,version=<v>]
+```
+
+固定/默认语义：
+- `version` 默认 `define.DefaultRawDiskVersion`
+- `uuid` 固定 `define.VarDataDiskUUID`
+- `mnt` 固定 `/var`
+
+行为矩阵：
+
+| var-disk path | version xattr | version 对比 | 动作 |
+|---|---|---|---|
+| 不存在 | N/A | N/A | 创建磁盘，使用固定 UUID，并写 version xattr |
+| 存在 | 有 | 相同 | 不重建 |
+| 存在 | 有 | 不同 | 重建并写最新 version xattr |
+| 存在 | 无 | 视为不一致 | 重建并写最新 version xattr |
 
 ### `attach` — 连接到运行中的虚拟机
 
