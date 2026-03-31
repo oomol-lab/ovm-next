@@ -194,7 +194,7 @@ func (v *machineBuilder) withUserProvidedMounts(dirs []string) error {
 	return nil
 }
 
-func (v *machineBuilder) configureGuestAgent(ctx context.Context) error {
+func (v *machineBuilder) configureGuestAgent(ctx context.Context, extraEnvs []string) error {
 	if v.WorkspaceDir == "" {
 		return fmt.Errorf("workspace path is empty")
 	}
@@ -227,6 +227,7 @@ func (v *machineBuilder) configureGuestAgent(ctx context.Context) error {
 	finalEnv = append(finalEnv, "TMPDIR=/tmp")
 	finalEnv = append(finalEnv, fmt.Sprintf("HOST_DOMAIN=%s", define.HostDomainInGVPNet))
 	finalEnv = append(finalEnv, fmt.Sprintf("%s=%s", define.EnvLogLevel, logrus.GetLevel().String()))
+	finalEnv = append(finalEnv, extraEnvs...)
 
 	guestAgentFilePath := filepath.Join(v.RootFS, ".bin", "guest-agent")
 
@@ -468,7 +469,7 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 		}
 	}
 
-	if err := mBuilder.configureGuestAgent(ctx); err != nil {
+	if err := mBuilder.configureGuestAgent(ctx, cfg.Env); err != nil {
 		return nil, nil, fmt.Errorf("configure guest agent: %w", err)
 	}
 

@@ -98,15 +98,24 @@ func (v *machineBuilder) withVarDisk(ctx context.Context, diskSpec RawDisk) erro
 		return err
 	}
 	diskSpec.RawDiskPath = rawDiskPath
+	logrus.Infof("preparing var disk path=%q version=%q uuid=%q mount=%q",
+		diskSpec.RawDiskPath, diskSpec.Version, define.VarDataDiskUUID, define.VarDiskMountPoint)
 
 	if err = v.reconcileVarRAWDisk(ctx, &diskSpec); err != nil {
 		return err
 	}
 
+	logrus.Infof("attaching var disk path=%q mount=%q", diskSpec.RawDiskPath, diskSpec.Mnt)
 	return v.addRAWDiskToBlkList(ctx, diskSpec.RawDiskPath, diskSpec.Mnt)
 }
 
 func (v *machineBuilder) withUserProvidedRawDisk(ctx context.Context, diskSpecs []RawDisk) error {
+	if len(diskSpecs) == 0 {
+		logrus.Info("no user-provided raw disks configured")
+		return nil
+	}
+	logrus.Infof("preparing %d user-provided raw disk(s)", len(diskSpecs))
+
 	for _, diskSpec := range diskSpecs {
 		rawDiskPath, err := absDiskPath(diskSpec.RawDiskPath)
 		if err != nil {
@@ -118,7 +127,8 @@ func (v *machineBuilder) withUserProvidedRawDisk(ctx context.Context, diskSpecs 
 			return err
 		}
 
-		logrus.Infof("attaching external raw disk %q", rawDiskPath)
+		logrus.Infof("attaching external raw disk path=%q uuid=%q mount=%q",
+			diskSpec.RawDiskPath, diskSpec.UUID, diskSpec.Mnt)
 		if err = v.addRAWDiskToBlkList(ctx, diskSpec.RawDiskPath, diskSpec.Mnt); err != nil {
 			return err
 		}
@@ -130,12 +140,14 @@ func (v *machineBuilder) withUserProvidedRawDisk(ctx context.Context, diskSpecs 
 func (v *machineBuilder) reconcileUserProvidedRawDisk(ctx context.Context, diskSpec *RawDisk) error {
 	_, statErr := os.Stat(diskSpec.RawDiskPath)
 	if statErr == nil {
+		logrus.Infof("external raw disk exists path=%q", diskSpec.RawDiskPath)
 		return v.handleExistingUserProvidedRawDisk(ctx, diskSpec)
 	}
 	if !os.IsNotExist(statErr) {
 		return fmt.Errorf("stat external raw disk %q failed: %w", diskSpec.RawDiskPath, statErr)
 	}
 
+	logrus.Infof("external raw disk not found path=%q", diskSpec.RawDiskPath)
 	return v.createUserProvidedRawDisk(ctx, diskSpec)
 }
 
@@ -174,13 +186,15 @@ func (v *machineBuilder) handleExistingUserProvidedRawDisk(ctx context.Context, 
 }
 
 func (v *machineBuilder) createUserProvidedRawDisk(ctx context.Context, diskSpec *RawDisk) error {
-	logrus.Warnf("external raw disk %q not found, creating...", diskSpec.RawDiskPath)
+	logrus.Infof("creating external raw disk path=%q", diskSpec.RawDiskPath)
 	if diskSpec.UUID == "" {
 		diskSpec.UUID = uuid.NewString()
 	}
 	if diskSpec.Mnt == "" {
 		diskSpec.Mnt = fmt.Sprintf("/mnt/%s", diskSpec.UUID)
 	}
+	logrus.Infof("new external raw disk metadata path=%q uuid=%q mount=%q version=%q",
+		diskSpec.RawDiskPath, diskSpec.UUID, diskSpec.Mnt, diskSpec.Version)
 
 	if err := v.generateRAWDisk(ctx, diskSpec.RawDiskPath, diskSpec.UUID, diskVersionXattrs(diskSpec.Version)); err != nil {
 		return fmt.Errorf("failed to create external raw disk %q: %w", diskSpec.RawDiskPath, err)
@@ -198,7 +212,7 @@ func (v *machineBuilder) reconcileVarRAWDisk(ctx context.Context, diskSpec *RawD
 		if !os.IsNotExist(err) {
 			return err
 		}
-		logrus.Infof("var disk %q not found, creating new disk", rawDiskPath)
+		logrus.Infof("var disk not found path=%q creating with version=%q", rawDiskPath, diskSpec.Version)
 		return v.generateRAWDisk(ctx, rawDiskPath, define.VarDataDiskUUID, versionXattrs)
 	}
 
@@ -208,14 +222,14 @@ func (v *machineBuilder) reconcileVarRAWDisk(ctx context.Context, diskSpec *RawD
 	}
 	if !hasVersionXattr || shouldRegenerate {
 		if shouldRegenerate {
-			logrus.Warnf("var disk %q needs regeneration", rawDiskPath)
+			logrus.Infof("var disk version mismatch path=%q expected=%q regenerating", rawDiskPath, diskSpec.Version)
 		} else {
-			logrus.Warnf("var disk %q has no version xattr, regenerating", rawDiskPath)
+			logrus.Infof("var disk has no version xattr path=%q regenerating", rawDiskPath)
 		}
 		return v.recreateRAWDisk(ctx, rawDiskPath, define.VarDataDiskUUID, versionXattrs)
 	}
 
-	logrus.Infof("var disk %q version is up-to-date, skip xattr update", rawDiskPath)
+	logrus.Infof("var disk is up-to-date path=%q version=%q", rawDiskPath, diskSpec.Version)
 	return nil
 }
 
@@ -252,6 +266,6 @@ func (v *machineBuilder) needsDiskRegeneration(ctx context.Context, diskPath str
 		return false, false, nil
 	}
 
-	logrus.Infof("stored disk %q version: %q, expected version: %q", diskPath, stored, expected)
+	logrus.Infof("disk %q version: %q, expected version: %q", diskPath, stored, expected)
 	return stored != expected, true, nil
 }
