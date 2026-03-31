@@ -387,9 +387,9 @@ func (b *builder) lint() {
 
 func (b *builder) packageTar() {
 	logrus.Info("packaging")
-	tarName := fmt.Sprintf("ovm-%s-%s.tar.zst", b.goos, b.goarch)
+	tarName := fmt.Sprintf("ovm-%s-%s.tar.gz", b.goos, b.goarch)
 	tarPath := filepath.Join(b.workspace, tarName)
-	run(nil, "bsdtar", "--zstd", "-cf", tarPath, "-C", b.outDir, ".")
+	run(nil, "bsdtar", "-czf", tarPath, "-C", b.outDir, ".")
 
 	// Restore placeholder
 	placeholder := filepath.Join(b.staticDir, "rootfs", "rootfs.tar.zst")
