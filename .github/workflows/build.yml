@@ -32,7 +32,7 @@ jobs:
         with:
           name: ovm-darwin
           path: |
-            ovm-*.tar.zst
+            ovm-*.tar.gz
           if-no-files-found: error
           overwrite: true
 
@@ -63,6 +63,6 @@ jobs:
         with:
           name: ovm-linux
           path: |
-            ovm-*.tar.zst
+            ovm-*.tar.gz
           if-no-files-found: error
           overwrite: true
