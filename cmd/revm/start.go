@@ -120,6 +120,7 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		WithProxy(command.Bool(define.FlagUsingSystemProxy)).
 		WithLogLevel(command.String(define.FlagLogLevel)).
 		WithLogTo(command.String(define.FlagLogTo)).
+		WithEnv(command.StringSlice(define.FlagEnvs)...).
 		WithDisk(command.StringSlice(define.FlagRawDisk)...).
 		WithMount(command.StringSlice(define.FlagMount)...).
 		WithVarDataDisk(command.String(define.FlagVarDisk)).
