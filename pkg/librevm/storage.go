@@ -92,29 +92,29 @@ func (v *machineBuilder) addRAWDiskToBlkList(ctx context.Context, rawDiskPath st
 	return nil
 }
 
-func (v *machineBuilder) withConfiguredStorageRAWDisk(ctx context.Context, cfg Config) error {
-	varDisk := cfg.VarDisk
-	varDiskPath, err := absDiskPath(varDisk.RawDiskPath)
+func (v *machineBuilder) withVarDisk(ctx context.Context, diskSpec RawDisk) error {
+	rawDiskPath, err := absDiskPath(diskSpec.RawDiskPath)
 	if err != nil {
 		return err
 	}
-	varDisk.RawDiskPath = varDiskPath
+	diskSpec.RawDiskPath = rawDiskPath
 
-	if err = v.reconcileVarRAWDisk(ctx, &varDisk); err != nil {
-		return err
-	}
-	if err = v.addRAWDiskToBlkList(ctx, varDisk.RawDiskPath, varDisk.Mnt); err != nil {
+	if err = v.reconcileVarRAWDisk(ctx, &diskSpec); err != nil {
 		return err
 	}
 
-	for _, diskSpec := range cfg.ExternalDisks {
+	return v.addRAWDiskToBlkList(ctx, diskSpec.RawDiskPath, diskSpec.Mnt)
+}
+
+func (v *machineBuilder) withUserProvidedRawDisk(ctx context.Context, diskSpecs []RawDisk) error {
+	for _, diskSpec := range diskSpecs {
 		rawDiskPath, err := absDiskPath(diskSpec.RawDiskPath)
 		if err != nil {
 			return err
 		}
 		diskSpec.RawDiskPath = rawDiskPath
 
-		if err := v.ensureExternalRAWDisk(ctx, &diskSpec); err != nil {
+		if err := v.reconcileUserProvidedRawDisk(ctx, &diskSpec); err != nil {
 			return err
 		}
 
@@ -127,35 +127,71 @@ func (v *machineBuilder) withConfiguredStorageRAWDisk(ctx context.Context, cfg C
 	return nil
 }
 
-func (v *machineBuilder) ensureExternalRAWDisk(ctx context.Context, diskSpec *RawDisk) error {
-	if _, err := os.Stat(diskSpec.RawDiskPath); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("stat external raw disk %q failed: %w", diskSpec.RawDiskPath, err)
-		}
-
-		logrus.Warnf("external raw disk %q not found, creating...", diskSpec.RawDiskPath)
-
-		if diskSpec.UUID == "" {
-			diskSpec.UUID = uuid.NewString()
-		}
-
-		if err := v.generateRAWDisk(ctx, diskSpec.RawDiskPath, diskSpec.UUID, nil); err != nil {
-			return fmt.Errorf("failed to create external raw disk %q: %w", diskSpec.RawDiskPath, err)
-		}
+func (v *machineBuilder) reconcileUserProvidedRawDisk(ctx context.Context, diskSpec *RawDisk) error {
+	_, statErr := os.Stat(diskSpec.RawDiskPath)
+	if statErr == nil {
+		return v.handleExistingUserProvidedRawDisk(ctx, diskSpec)
+	}
+	if !os.IsNotExist(statErr) {
+		return fmt.Errorf("stat external raw disk %q failed: %w", diskSpec.RawDiskPath, statErr)
 	}
 
+	return v.createUserProvidedRawDisk(ctx, diskSpec)
+}
+
+func (v *machineBuilder) handleExistingUserProvidedRawDisk(ctx context.Context, diskSpec *RawDisk) error {
+	diskMgr, err := disk.NewBlkManager()
+	if err != nil {
+		return err
+	}
+
+	info, err := diskMgr.Inspect(ctx, diskSpec.RawDiskPath)
+	if err != nil {
+		return fmt.Errorf("inspect external raw disk %q failed: %w", diskSpec.RawDiskPath, err)
+	}
+
+	// Existing disk must keep its own UUID; ignore CLI-provided UUID.
+	diskSpec.UUID = info.UUID
+	if diskSpec.Mnt == "" {
+		diskSpec.Mnt = info.MountTo
+	}
+
+	shouldRegenerate, hasVersionXattr, err := v.needsDiskRegeneration(ctx, diskSpec.RawDiskPath, diskSpec.Version)
+	if err != nil {
+		return err
+	}
+	if !hasVersionXattr {
+		logrus.Infof("external raw disk %q has no version xattr, skip version bump", diskSpec.RawDiskPath)
+		return nil
+	}
+	if !shouldRegenerate {
+		logrus.Infof("external raw disk %q version is up-to-date", diskSpec.RawDiskPath)
+		return nil
+	}
+
+	logrus.Warnf("external raw disk %q needs regeneration", diskSpec.RawDiskPath)
+	return v.recreateRAWDisk(ctx, diskSpec.RawDiskPath, diskSpec.UUID, diskVersionXattrs(diskSpec.Version))
+}
+
+func (v *machineBuilder) createUserProvidedRawDisk(ctx context.Context, diskSpec *RawDisk) error {
+	logrus.Warnf("external raw disk %q not found, creating...", diskSpec.RawDiskPath)
+	if diskSpec.UUID == "" {
+		diskSpec.UUID = uuid.NewString()
+	}
+	if diskSpec.Mnt == "" {
+		diskSpec.Mnt = fmt.Sprintf("/mnt/%s", diskSpec.UUID)
+	}
+
+	if err := v.generateRAWDisk(ctx, diskSpec.RawDiskPath, diskSpec.UUID, diskVersionXattrs(diskSpec.Version)); err != nil {
+		return fmt.Errorf("failed to create external raw disk %q: %w", diskSpec.RawDiskPath, err)
+	}
 	return nil
 }
 
 func (v *machineBuilder) reconcileVarRAWDisk(ctx context.Context, diskSpec *RawDisk) error {
 	diskSpec.UUID = define.VarDataDiskUUID
 
-	var versionXattrs map[string]string
-	if diskSpec.Version != "" {
-		versionXattrs = map[string]string{
-			define.XattrDiskVersionKey: diskSpec.Version,
-		}
-	}
+	versionXattrs := diskVersionXattrs(diskSpec.Version)
 
 	rawDiskPath := diskSpec.RawDiskPath
 	if _, err := os.Stat(rawDiskPath); err != nil {
@@ -189,6 +225,15 @@ func (v *machineBuilder) recreateRAWDisk(ctx context.Context, rawDiskPath string
 		return err
 	}
 	return v.generateRAWDisk(ctx, rawDiskPath, uuid, xattrs)
+}
+
+func diskVersionXattrs(version string) map[string]string {
+	if version == "" {
+		return nil
+	}
+	return map[string]string{
+		define.XattrDiskVersionKey: version,
+	}
 }
 
 func (v *machineBuilder) needsDiskRegeneration(ctx context.Context, diskPath string, expected string) (bool, bool, error) {

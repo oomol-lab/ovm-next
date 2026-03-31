@@ -455,8 +455,11 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 		return nil, nil, fmt.Errorf("configure podman: %w", err)
 	}
 
-	if err := mBuilder.withConfiguredStorageRAWDisk(ctx, cfg); err != nil {
-		return nil, nil, fmt.Errorf("attach raw disks: %w", err)
+	if err := mBuilder.withVarDisk(ctx, cfg.VarDisk); err != nil {
+		return nil, nil, fmt.Errorf("attach var disk: %w", err)
+	}
+	if err := mBuilder.withUserProvidedRawDisk(ctx, cfg.ExternalDisks); err != nil {
+		return nil, nil, fmt.Errorf("attach external raw disks: %w", err)
 	}
 
 	if len(cfg.Mounts) > 0 {

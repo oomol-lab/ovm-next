@@ -29,7 +29,7 @@ var startDocker = cli.Command{
 		},
 		&cli.StringSliceFlag{
 			Name:  define.FlagRawDisk,
-			Usage: "attach an ext4 raw disk image to the VM (format: <path>[,uuid]); auto-created if the file does not exist; UUID is auto-generated when omitted; mounted at /mnt/<UUID> inside the guest; can be specified multiple times",
+			Usage: "attach an ext4 raw disk image to the VM (format: <path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>] or legacy <path>[,<uuid>]); defaults: version=define.DefaultRawDiskVersion, uuid=random, mnt=/mnt/<UUID>; existing raw disk always keeps its own UUID; can be specified multiple times",
 		},
 		&cli.StringSliceFlag{
 			Name:  define.FlagMount,
@@ -62,8 +62,8 @@ var startDocker = cli.Command{
 			Usage: "session name; used to derive the workspace directory (/tmp/<session_id>); sessions with the same name are mutually exclusive via flock",
 		},
 		&cli.StringFlag{
-			Name:  define.FlagDataDisk,
-			Usage: "path to a persistent ext4 raw disk image for guest /var; auto-created if the file does not exist; defaults to a workspace-local disk if unset",
+			Name:  define.FlagVarDisk,
+			Usage: "path/version for guest /var raw disk (format: <path>[,version=<v>]); defaults: version=define.DefaultRawDiskVersion, uuid=define.VarDataDiskUUID, mnt=/var; auto-created if the file does not exist",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagPodmanProxyAPIFile,
@@ -81,11 +81,6 @@ var startDocker = cli.Command{
 			Name:  define.FlagExportSSHKeyPublicFile,
 			Usage: "file path to symlink the generated SSH public key to",
 		},
-		&cli.StringFlag{
-			Name:  define.FlagDataDiskVersion,
-			Usage: "version tag for the data disk; used to detect and upgrade the disk format when the version changes",
-		},
-
 		// legacy hidden flags set
 		&cli.StringFlag{
 			Name:   define.FlagOVMWorkspace,
@@ -127,7 +122,7 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		WithLogTo(command.String(define.FlagLogTo)).
 		WithDisk(command.StringSlice(define.FlagRawDisk)...).
 		WithMount(command.StringSlice(define.FlagMount)...).
-		WithVarDataDisk(command.String(define.FlagDataDisk), command.String(define.FlagDataDiskVersion)).
+		WithVarDataDisk(command.String(define.FlagVarDisk)).
 		WithPodmanProxyAPIFile(command.String(define.FlagPodmanProxyAPIFile)).
 		WithManageAPIFile(command.String(define.FlagManageAPIFile)).
 		WithExportSSHKeyPrivateFile(command.String(define.FlagExportSSHKeyPrivateFile)).

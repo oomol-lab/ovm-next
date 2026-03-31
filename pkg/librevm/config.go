@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
@@ -131,20 +132,37 @@ func (c *Config) WithRawDisk(disks ...RawDisk) *Config {
 	return c
 }
 
-func (c *Config) WithVarDataDisk(path string, varDiskVersion string) *Config {
+func (c *Config) WithVarDataDisk(spec string) *Config {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return c
+	}
+
+	parts := strings.Split(spec, ",")
+	path := strings.TrimSpace(parts[0])
 	if path == "" {
 		return c
 	}
 
-	if varDiskVersion == "" {
-		varDiskVersion = define.DefaultRawDiskVersion
+	version := define.DefaultRawDiskVersion
+	for _, part := range parts[1:] {
+		part = strings.TrimSpace(part)
+		key, val, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(key), "version") {
+			if strings.TrimSpace(val) != "" {
+				version = strings.TrimSpace(val)
+			}
+		}
 	}
 
 	c.VarDisk = RawDisk{
 		RawDiskPath: path,
 		UUID:        define.VarDataDiskUUID,
 		Mnt:         define.VarDiskMountPoint,
-		Version:     varDiskVersion,
+		Version:     version,
 	}
 
 	return c
@@ -223,11 +241,51 @@ func (c *Config) WithDisk(specs ...string) *Config {
 	}
 
 	for _, spec := range specs {
-		diskFile, diskUUID, _ := strings.Cut(spec, ",")
-		c.WithRawDisk(RawDisk{
-			RawDiskPath: diskFile,
-			UUID:        strings.TrimSpace(diskUUID),
-		})
+		spec = strings.TrimSpace(spec)
+		if spec == "" {
+			continue
+		}
+
+		parts := strings.Split(spec, ",")
+		raw := RawDisk{
+			RawDiskPath: strings.TrimSpace(parts[0]),
+		}
+
+		for _, part := range parts[1:] {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+
+			key, val, ok := strings.Cut(part, "=")
+			if !ok {
+				// Backward compatible: --raw-disk <path>,<uuid>
+				if raw.UUID == "" {
+					raw.UUID = part
+				}
+				continue
+			}
+
+			key = strings.ToLower(strings.TrimSpace(key))
+			val = strings.TrimSpace(val)
+			switch key {
+			case "uuid":
+				raw.UUID = val
+			case "version":
+				raw.Version = val
+			case "mnt":
+				raw.Mnt = val
+			}
+		}
+
+		if raw.Version == "" {
+			raw.Version = define.DefaultRawDiskVersion
+		}
+		if raw.UUID == "" {
+			raw.UUID = uuid.NewString()
+		}
+
+		c.WithRawDisk(raw)
 	}
 
 	return c

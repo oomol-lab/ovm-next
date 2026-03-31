@@ -21,10 +21,9 @@ process shuts down the VM.
 | `--memory`                 | uint64   | host available                    | VM memory in MB (min 512)                                                                       |
 | `--id`                     | string   |                                   | Session name; workspace is `/tmp/<id>`                                                          |
 | `--envs`                   | string[] |                                   | Environment variables (`KEY=VALUE`), repeatable                                                 |
-| `--raw-disk`               | string[] |                                   | Attach ext4 disk (`<path>[,uuid]`), repeatable                                                  |
+| `--raw-disk`               | string[] |                                   | Attach ext4 disk (`<path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`, legacy `<path>,<uuid>`), repeatable |
 | `--mount`                  | string[] |                                   | VirtIO-FS shared directory (`/host:/guest[,ro]`), repeatable                                    |
-| `--data-disk`              | string   |                                   | Persistent ext4 disk for guest `/var`; the raw disk still mounts under `/mnt/<UUID>` first     |
-| `--data-disk-version`      | string   |                                   | Version tag for the data disk; triggers disk format upgrade when changed                        |
+| `--var-disk`               | string   |                                   | Persistent ext4 disk for guest `/var` (`<path>[,version=<v>]`)                                  |
 | `--network`                | string   | `gvisor`                          | Virtual network: `gvisor` (NAT via 192.168.127.0/24) or `tsi` (transparent socket interception) |
 | `--system-proxy`           | bool     | false                             | Forward macOS system HTTP/HTTPS proxy to guest                                                  |
 | `--podman-api`             | string   | `/tmp/<id>/socks/podman-api.sock` | Unix socket for host-side Podman API                                                            |
@@ -49,6 +48,56 @@ ovm start --id dev \
 # Forward macOS system proxy into the guest
 ovm start --id dev --system-proxy
 ```
+
+#### `--raw-disk` Usage and Behavior
+
+Usage:
+
+```bash
+--raw-disk <path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]
+```
+
+Legacy format is still supported:
+
+```bash
+--raw-disk <path>,<uuid>
+```
+
+Defaults:
+- `version=define.DefaultRawDiskVersion`
+- `uuid=random`
+- `mnt=/mnt/<UUID>`
+
+Behavior matrix:
+
+| raw-path | version xattr | version compare | UUID rule | mnt rule | action |
+|---|---|---|---|---|---|
+| not exists | N/A | N/A | user uuid or random | user mnt or `/mnt/<UUID>` | create disk, write UUID, write version xattr |
+| exists | missing | skip bump | keep on-disk UUID (ignore user uuid) | if mnt empty, use probed mount target | no regenerate |
+| exists | present | same | keep on-disk UUID (ignore user uuid) | if mnt empty, use probed mount target | no regenerate |
+| exists | present | different | keep on-disk UUID (ignore user uuid) | if mnt empty, use probed mount target | regenerate and write latest version xattr |
+
+#### `--var-disk` Usage and Behavior
+
+Usage:
+
+```bash
+--var-disk <path>[,version=<v>]
+```
+
+Fixed/default semantics:
+- `version` default is `define.DefaultRawDiskVersion`
+- `uuid` is fixed to `define.VarDataDiskUUID`
+- `mnt` is fixed to `/var`
+
+Behavior matrix:
+
+| var-disk path | version xattr | version compare | action |
+|---|---|---|---|
+| not exists | N/A | N/A | create disk with fixed UUID and write version xattr |
+| exists | present | same | no regenerate |
+| exists | present | different | regenerate and write latest version xattr |
+| exists | missing | treat as mismatch | regenerate and write latest version xattr |
 
 ### `attach` — Attach to a running VM
 
