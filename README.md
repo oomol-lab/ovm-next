@@ -21,7 +21,7 @@ process shuts down the VM.
 | `--memory`                 | uint64   | host available                    | VM memory in MB (min 512)                                                                       |
 | `--id`                     | string   |                                   | Session name; workspace is `/tmp/<id>`                                                          |
 | `--envs`                   | string[] |                                   | Environment variables (`KEY=VALUE`), repeatable                                                 |
-| `--raw-disk`               | string[] |                                   | Attach ext4 disk (`<path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`, legacy `<path>,<uuid>`), repeatable |
+| `--raw-disk`               | string[] |                                   | Attach ext4 disk (`<path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`), repeatable |
 | `--mount`                  | string[] |                                   | VirtIO-FS shared directory (`/host:/guest[,ro]`), repeatable                                    |
 | `--var-disk`               | string   |                                   | Persistent ext4 disk for guest `/var` (`<path>[,version=<v>]`)                                  |
 | `--network`                | string   | `gvisor`                          | Virtual network: `gvisor` (NAT via 192.168.127.0/24) or `tsi` (transparent socket interception) |
@@ -55,12 +55,6 @@ Usage:
 
 ```bash
 --raw-disk <path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]
-```
-
-Legacy format is still supported:
-
-```bash
---raw-disk <path>,<uuid>
 ```
 
 Defaults:
