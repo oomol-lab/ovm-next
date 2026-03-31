@@ -19,7 +19,7 @@ ovm start [flags]
 | `--memory`                 | uint64   | 宿主机可用内存                           | 虚拟机内存（MB），最低 512                                     |
 | `--id`                     | string   |                                   | 会话名称，工作目录为 `/tmp/<id>`                               |
 | `--envs`                   | string[] |                                   | 环境变量（`KEY=VALUE`），可多次指定                              |
-| `--raw-disk`               | string[] |                                   | 挂载 ext4 裸磁盘（`<路径>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`，兼容 `<路径>,<uuid>`），可多次指定 |
+| `--raw-disk`               | string[] |                                   | 挂载 ext4 裸磁盘（`<路径>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`），可多次指定 |
 | `--mount`                  | string[] |                                   | VirtIO-FS 共享目录（`/宿主路径:/客户路径[,ro]`），可多次指定             |
 | `--var-disk`               | string   |                                   | guest `/var` 持久化 ext4 磁盘（`<路径>[,version=<v>]`）                |
 | `--network`                | string   | `gvisor`                          | 虚拟网络：`gvisor`（NAT, 192.168.127.0/24）或 `tsi`（透明套接字拦截） |
@@ -53,12 +53,6 @@ ovm start --id dev --system-proxy
 
 ```bash
 --raw-disk <路径>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]
-```
-
-兼容旧格式：
-
-```bash
---raw-disk <路径>,<uuid>
 ```
 
 默认值：

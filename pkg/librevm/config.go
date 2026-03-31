@@ -127,11 +127,6 @@ func (c *Config) WithNetwork(mode string) *Config {
 	return c
 }
 
-func (c *Config) WithRawDisk(disks ...RawDisk) *Config {
-	c.ExternalDisks = append(c.ExternalDisks, disks...)
-	return c
-}
-
 func (c *Config) WithVarDataDisk(spec string) *Config {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
@@ -259,10 +254,6 @@ func (c *Config) WithDisk(specs ...string) *Config {
 
 			key, val, ok := strings.Cut(part, "=")
 			if !ok {
-				// Backward compatible: --raw-disk <path>,<uuid>
-				if raw.UUID == "" {
-					raw.UUID = part
-				}
 				continue
 			}
 
@@ -285,7 +276,7 @@ func (c *Config) WithDisk(specs ...string) *Config {
 			raw.UUID = uuid.NewString()
 		}
 
-		c.WithRawDisk(raw)
+		c.ExternalDisks = append(c.ExternalDisks, raw)
 	}
 
 	return c

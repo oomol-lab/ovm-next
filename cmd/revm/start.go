@@ -29,7 +29,7 @@ var startDocker = cli.Command{
 		},
 		&cli.StringSliceFlag{
 			Name:  define.FlagRawDisk,
-			Usage: "attach an ext4 raw disk image to the VM (format: <path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>] or legacy <path>[,<uuid>]); defaults: version=define.DefaultRawDiskVersion, uuid=random, mnt=/mnt/<UUID>; existing raw disk always keeps its own UUID; can be specified multiple times",
+			Usage: "attach an ext4 raw disk image to the VM (format: <path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]); defaults: version=define.DefaultRawDiskVersion, uuid=random, mnt=/mnt/<UUID>; existing raw disk always keeps its own UUID; can be specified multiple times",
 		},
 		&cli.StringSliceFlag{
 			Name:  define.FlagMount,
