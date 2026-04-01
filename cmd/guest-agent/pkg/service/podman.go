@@ -49,7 +49,6 @@ func StartGuestPodmanService(ctx context.Context, vmc *define.Machine) error {
 		Stdout:      StderrWriter(),
 		Stderr:      StderrWriter(),
 		Restart:     true,
-		MaxRetries:  5,
 		RetryDelay:  500 * time.Millisecond,
 		StopTimeout: 5 * time.Second,
 	})
