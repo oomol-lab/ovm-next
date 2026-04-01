@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"linuxvm/pkg/define"
-	"linuxvm/pkg/eventreporter"
 	"linuxvm/pkg/librevm"
 	"path/filepath"
 
@@ -49,10 +48,6 @@ var initCommand = cli.Command{
 		&cli.StringFlag{
 			Name: define.FlagOVMName,
 		},
-		&cli.StringFlag{
-			Name:  define.FlagOVMLogLevel,
-			Value: "info",
-		},
 	},
 }
 
@@ -74,12 +69,14 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	cfg := librevm.Config{
-		RunMode: librevm.ModeCfgGen,
+		SessionID: define.DefaultOVMSessionID,
+		RunMode:   librevm.ModeCfgGen,
 		ExternalDisks: []librevm.RawDisk{
 			{
 				RawDiskPath: filepath.Join(baseDir, "data", "source.ext4"),
 				UUID:        define.OVMSourceDiskUUID,
 				Version:     define.DefaultRawDiskVersion,
+				Mnt:         filepath.Join("/mnt", define.OVMSourceDiskUUID),
 			},
 		},
 		VarDisk: librevm.RawDisk{
@@ -88,6 +85,7 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 			UUID:        define.VarDataDiskUUID,
 			Mnt:         define.VarDiskMountPoint,
 		},
+		LogLevel:                     "info",
 		LogTo:                        filepath.Join(baseDir, "logs", "ovm.log"),
 		SSHKeyPrivateFileSymbolLinks: filepath.Join(baseDir, "data", "sshkey"),
 		SSHKeyPublicFileSymbolLinks:  filepath.Join(baseDir, "data", "sshkey.pub"),
@@ -96,11 +94,7 @@ func generateOVMCfgAction(ctx context.Context, cmd *cli.Command) error {
 		Mounts:                       cmd.StringSlice(define.FlagOVMVolume),
 		CPUs:                         cmd.Int(define.FlagOVMCPUS),
 		MemoryMB:                     cmd.Uint64(define.FlagOVMMemoryInMB),
-		SessionID:                    define.DefaultOVMSessionID,
-	}
-
-	if u := cmd.String(define.FlagOVMReportURL); u != "" {
-		cfg.WithEventReporter(eventreporter.NewLegacyReporter(u, librevm.ModeCfgGen))
+		ReportURL:                    cmd.String(define.FlagOVMReportURL),
 	}
 
 	return librevm.GenerateVMConfig(ctx, &cfg, vmConfigFilePath)

@@ -15,6 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/sirupsen/logrus"
 )
 
 // RunMode selects the VM run mode.
@@ -25,6 +26,8 @@ const (
 	ModeContainer RunMode = "docker"
 	ModeCfgGen    RunMode = "cfggen"
 )
+
+const maxLogFileSize = 10 * 1024 * 1024
 
 func (m RunMode) IsValid() bool {
 	switch m {
@@ -41,8 +44,6 @@ type Config struct {
 	CPUs      int     `toml:"cpus,omitempty"      json:"cpus,omitempty"`      // 0 → host CPU count
 	MemoryMB  uint64  `toml:"memory_mb,omitempty" json:"memoryMB,omitempty"`  // 0 → host total RAM
 
-	// Command specifies the program to run inside the VM (rootfs mode only).
-	Command []string `toml:"command,omitempty"  json:"command,omitempty"`
 	WorkDir string   `toml:"workdir,omitempty"  json:"workdir,omitempty"`
 	Env     []string `toml:"env,omitempty"      json:"env,omitempty"`
 
@@ -51,16 +52,16 @@ type Config struct {
 	VarDisk       RawDisk   `toml:"varDisk,omitempty"       json:"varDisk,omitempty"`
 	ExternalDisks []RawDisk `toml:"externalDisks,omitempty" json:"externalDisks,omitempty"`
 
-	Network                      string          `toml:"network,omitempty"         json:"network,omitempty"` // "gvisor" | "tsi"
-	Mounts                       []string        `toml:"mounts,omitempty"          json:"mounts,omitempty"`  // "/host:/guest[,ro]"
-	PodmanProxyAPIFile           string          `toml:"podman_proxy_api_file,omitempty"   json:"podmanProxyAPIFile,omitempty"`
-	ManageAPIFile                string          `toml:"manage_api_file,omitempty"         json:"manageAPIFile,omitempty"`
-	SSHKeyPrivateFileSymbolLinks string          `toml:"ssh_key_private_file_symbol_links,omitempty" json:"SSHKeyPrivateFileSymbolLinks,omitempty"`
-	SSHKeyPublicFileSymbolLinks  string          `toml:"ssh_key_public_file_symbol_links,omitempty" json:"SSHKeyPublicFileSymbolLinks,omitempty"`
-	Proxy                        bool            `toml:"proxy,omitempty"           json:"proxy,omitempty"`
-	LogLevel                     string          `toml:"log_level,omitempty"       json:"logLevel,omitempty"` // default "info"
-	LogTo                        string          `toml:"log_to,omitempty"          json:"logTo,omitempty"`
-	Reporters                    []EventReporter `toml:"-" json:"-"`
+	Network                      string   `toml:"network,omitempty"         json:"network,omitempty"` // "gvisor" | "tsi"
+	Mounts                       []string `toml:"mounts,omitempty"          json:"mounts,omitempty"`  // "/host:/guest[,ro]"
+	PodmanProxyAPIFile           string   `toml:"podman_proxy_api_file,omitempty"   json:"podmanProxyAPIFile,omitempty"`
+	ManageAPIFile                string   `toml:"manage_api_file,omitempty"         json:"manageAPIFile,omitempty"`
+	SSHKeyPrivateFileSymbolLinks string   `toml:"ssh_key_private_file_symbol_links,omitempty" json:"SSHKeyPrivateFileSymbolLinks,omitempty"`
+	SSHKeyPublicFileSymbolLinks  string   `toml:"ssh_key_public_file_symbol_links,omitempty" json:"SSHKeyPublicFileSymbolLinks,omitempty"`
+	Proxy                        bool     `toml:"proxy,omitempty"           json:"proxy,omitempty"`
+	LogLevel                     string   `toml:"log_level,omitempty"       json:"logLevel,omitempty"` // default "info"
+	LogTo                        string   `toml:"log_to,omitempty"          json:"logTo,omitempty"`
+	ReportURL                    string   `toml:"report_url,omitempty"       json:"reportURL,omitempty"`
 }
 
 type RawDisk struct {
@@ -76,8 +77,9 @@ func DefaultConfig(id string) *Config {
 	return &Config{
 		SessionID: id,
 		Network:   "gvisor",
-		LogLevel:  "info",
 		WorkDir:   "/",
+		LogTo:     getLogFilePath(id),
+		LogLevel:  logrus.InfoLevel.String(),
 		VarDisk: RawDisk{
 			RawDiskPath: getDefaultVarDiskPath(id),
 			UUID:        define.VarDataDiskUUID,
@@ -95,12 +97,7 @@ func (c *Config) WithMode(m RunMode) *Config {
 	}
 	return c
 }
-func (c *Config) WithName(name string) *Config {
-	if name != "" {
-		c.SessionID = name
-	}
-	return c
-}
+
 func (c *Config) WithCPUs(n int) *Config {
 	if n > 0 {
 		c.CPUs = n
@@ -187,33 +184,80 @@ func (c *Config) WithExportSSHKeyPublicFile(path string) *Config {
 	}
 	return c
 }
-func (c *Config) WithEventReporter(reporters ...EventReporter) *Config {
-	for _, r := range reporters {
-		if r != nil {
-			c.Reporters = append(c.Reporters, r)
-		}
+
+func (c *Config) WithReportEndpoint(url string) *Config {
+	if v := strings.TrimSpace(url); v != "" {
+		c.ReportURL = v
 	}
+
 	return c
 }
-func (c *Config) WithProxy(enable bool) *Config { c.Proxy = enable; return c }
-func (c *Config) WithLogLevel(level string) *Config {
-	if level != "" {
-		c.LogLevel = level
-	}
-	return c
-}
-func (c *Config) WithLogTo(path string) *Config {
-	if path != "" {
-		c.LogTo = path
-	}
+func (c *Config) WithProxy(enable bool) *Config {
+	c.Proxy = enable
 	return c
 }
 
-func (c *Config) WithCommand(bin string, args ...string) *Config {
-	if bin != "" {
-		c.Command = append([]string{bin}, args...)
+func (c *Config) WithLogLevelAndLogFile(level, logTo string) *Config {
+	if level != "" {
+		c.LogLevel = level
 	}
+
+	if logTo != "" {
+		c.LogTo = logTo
+	}
+
 	return c
+}
+
+func setupLoggers(level, logTo string, sessionID string) error {
+	logrus.SetOutput(os.Stderr)
+
+	if level == "" {
+		level = logrus.InfoLevel.String()
+	}
+
+	if logTo == "" {
+		logTo = getLogFilePath(sessionID)
+	}
+
+	if strings.TrimSpace(level) == "" {
+		return fmt.Errorf("invalid log level: %q", level)
+	}
+
+	if strings.TrimSpace(logTo) == "" {
+		return fmt.Errorf("invalid log path: %q", logTo)
+	}
+
+	l, err := logrus.ParseLevel(level)
+	if err != nil {
+		return fmt.Errorf("parse log level: %w", err)
+	}
+
+	logrus.SetLevel(l)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05.000",
+		ForceColors:     true,
+	})
+
+	if logTo != "" {
+		if err := os.MkdirAll(filepath.Dir(logTo), 0755); err != nil {
+			return fmt.Errorf("create log directory: %w", err)
+		}
+
+		if info, err := os.Stat(logTo); err == nil && info.Size() > maxLogFileSize {
+			_ = os.Truncate(logTo, 0)
+		}
+
+		f, err := os.OpenFile(logTo, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return fmt.Errorf("open log file: %w", err)
+		}
+
+		logrus.SetOutput(io.MultiWriter(os.Stderr, f))
+	}
+
+	return nil
 }
 
 func (c *Config) WithEnv(kvs ...string) *Config {
@@ -297,57 +341,59 @@ func (c *Config) WriteCfg(path string) error {
 	return nil
 }
 
-// MergeFrom applies non-zero preference fields from other onto c.
-// Only fields that "init" is expected to set are merged; runtime-only
-// fields (RunMode, SessionID, event report URLs, etc.) are intentionally skipped.
-func (c *Config) MergeFrom(other *Config) {
-	if other == nil {
+// OverwriteCfgFrom overwrites only init-generated compatibility fields.
+// ReportURL is intentionally excluded.
+func (c *Config) OverwriteCfgFrom(other *Config) {
+	if c == nil || other == nil {
 		return
 	}
 
-	if other.SessionID != "" {
-		c.SessionID = other.SessionID
-	}
-
-	if other.VarDisk.RawDiskPath != "" {
-		c.VarDisk = other.VarDisk
-	}
-	if len(other.ExternalDisks) > 0 {
-		c.ExternalDisks = other.ExternalDisks
+	if v := strings.TrimSpace(other.SessionID); v != "" {
+		c.SessionID = v
 	}
 
 	if other.CPUs > 0 {
 		c.CPUs = other.CPUs
 	}
+
 	if other.MemoryMB > 0 {
 		c.MemoryMB = other.MemoryMB
 	}
-	if other.Network != "" {
-		c.Network = other.Network
+
+	if strings.TrimSpace(other.VarDisk.RawDiskPath) != "" {
+		c.VarDisk = other.VarDisk
+	}
+
+	if len(other.ExternalDisks) > 0 {
+		c.ExternalDisks = other.ExternalDisks
 	}
 
 	if len(other.Mounts) > 0 {
-		c.Mounts = append(c.Mounts, other.Mounts...)
+		c.Mounts = append([]string(nil), other.Mounts...)
 	}
 
-	if other.PodmanProxyAPIFile != "" {
-		c.PodmanProxyAPIFile = other.PodmanProxyAPIFile
+	if v := strings.TrimSpace(other.PodmanProxyAPIFile); v != "" {
+		c.PodmanProxyAPIFile = v
 	}
 
-	if other.ManageAPIFile != "" {
-		c.ManageAPIFile = other.ManageAPIFile
+	if v := strings.TrimSpace(other.ManageAPIFile); v != "" {
+		c.ManageAPIFile = v
 	}
 
-	if other.SSHKeyPrivateFileSymbolLinks != "" {
-		c.SSHKeyPrivateFileSymbolLinks = other.SSHKeyPrivateFileSymbolLinks
+	if v := strings.TrimSpace(other.SSHKeyPrivateFileSymbolLinks); v != "" {
+		c.SSHKeyPrivateFileSymbolLinks = v
 	}
 
-	if other.SSHKeyPublicFileSymbolLinks != "" {
-		c.SSHKeyPublicFileSymbolLinks = other.SSHKeyPublicFileSymbolLinks
+	if v := strings.TrimSpace(other.SSHKeyPublicFileSymbolLinks); v != "" {
+		c.SSHKeyPublicFileSymbolLinks = v
 	}
 
-	if other.LogTo != "" {
-		c.LogTo = other.LogTo
+	if v := strings.TrimSpace(other.LogLevel); v != "" {
+		c.LogLevel = v
+	}
+
+	if v := strings.TrimSpace(other.LogTo); v != "" {
+		c.LogTo = v
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"linuxvm/pkg/define"
 	"linuxvm/pkg/filesystem"
-	commonlog "linuxvm/pkg/log"
 	"linuxvm/pkg/network"
 	ssh "linuxvm/pkg/ssh"
 	"linuxvm/pkg/static_resources"
@@ -97,24 +96,6 @@ func (v *machineBuilder) lock(ctx context.Context) error {
 		}
 		return err
 	}
-}
-
-func (v *machineBuilder) setupLogLevel(level, customLogPath string) (*os.File, error) {
-	logPath := filepath.Join(v.WorkspaceDir, "logs", "vm.log")
-	if customLogPath != "" {
-		absLogPath, err := filepath.Abs(filepath.Clean(customLogPath))
-		if err != nil {
-			return nil, err
-		}
-		logPath = absLogPath
-	}
-	v.LogFile = logPath
-
-	f, err := commonlog.SetupLogger(level, "", v.LogFile)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
 }
 
 func (v *machineBuilder) withResources(memoryInMB uint64, cpus uint8) error {
@@ -418,12 +399,7 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 	cleanupCallbacks.AddFunc(func() { _ = mBuilder.fileLock.Unlock(); _ = os.Remove(workspacePath + ".lock") })
 	cleanupCallbacks.AddFunc(func() { _ = os.RemoveAll(workspacePath) })
 
-	logFile, err := mBuilder.setupLogLevel(cfg.LogLevel, cfg.LogTo)
-	if err != nil {
-		return nil, nil, fmt.Errorf("setup log level: %w", err)
-	}
-
-	cleanupCallbacks.AddFunc(func() { logrus.SetOutput(os.Stderr); _ = logFile.Close() })
+	mBuilder.LogFile = cfg.LogTo
 
 	if err := mBuilder.configureSSH(); err != nil {
 		return nil, nil, fmt.Errorf("generate ssh config: %w", err)
@@ -495,6 +471,10 @@ func getDefaultVarDiskPath(id string) string {
 
 func getSessionDir(name string) string {
 	return fmt.Sprintf("/tmp/%s", name)
+}
+
+func getLogFilePath(id string) string {
+	return filepath.Join(getSessionDir(id), "logs", "ovm.log")
 }
 
 func ignitionSockFile(workspace string) string {
