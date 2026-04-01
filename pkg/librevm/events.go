@@ -17,19 +17,19 @@ type Event struct {
 	Time      time.Time `json:"time"`
 }
 
-// EventReporter consumes VM lifecycle events.
-type EventReporter interface {
+// eventReporter consumes VM lifecycle events.
+type eventReporter interface {
 	Report(evt Event)
 	Close()
 }
 
 type eventDispatcher struct {
 	mu        sync.RWMutex
-	reporters []EventReporter
+	reporters []eventReporter
 	closed    bool
 }
 
-func (d *eventDispatcher) addReporter(r EventReporter) {
+func (d *eventDispatcher) addReporter(r eventReporter) {
 	if d == nil || r == nil {
 		return
 	}
@@ -77,7 +77,7 @@ func (d *eventDispatcher) close() {
 		return
 	}
 	d.closed = true
-	reporters := make([]EventReporter, len(d.reporters))
+	reporters := make([]eventReporter, len(d.reporters))
 	copy(reporters, d.reporters)
 	d.reporters = nil
 	d.mu.Unlock()

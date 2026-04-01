@@ -27,13 +27,14 @@ import (
 type VM struct {
 	cfg *Config
 
-	machine         *define.Machine
-	provider        interfaces.VMMProvider
-	svc             lifecycle.HostServices
-	sessionDir      string
-	cleanup         func()
+	machine    *define.Machine
+	provider   interfaces.VMMProvider
+	svc        lifecycle.HostServices
+	sessionDir string
+	cleanup    func()
+	Cancel     context.CancelFunc
+
 	eventDispatcher eventDispatcher
-	Cancel          context.CancelFunc
 
 	seq atomic.Uint64
 }
@@ -68,6 +69,12 @@ func New(cfg *Config) (*VM, error) {
 		return nil, fmt.Errorf("config must not be nil")
 	}
 
+	if err := setupLoggers(cfg.LogLevel, cfg.LogTo, cfg.SessionID); err != nil {
+		return nil, fmt.Errorf("setup loggers: %w", err)
+	}
+
+	logrus.Infof("ovm cmdline: %q", os.Args)
+
 	cfg, err := NormalizeConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("resolve defaults: %w", err)
@@ -78,9 +85,7 @@ func New(cfg *Config) (*VM, error) {
 		sessionDir: getSessionDir(cfg.SessionID),
 	}
 
-	for _, r := range cfg.Reporters {
-		vm.eventDispatcher.addReporter(r)
-	}
+	vm.eventDispatcher.addReporter(newLegacyReporter(cfg.ReportURL, cfg.RunMode))
 
 	return vm, nil
 }
@@ -293,13 +298,16 @@ func (vm *VM) execIgnoreErr(ctx context.Context, cmdline ...string) {
 }
 
 func GenerateVMConfig(ctx context.Context, cfg *Config, path string) error {
+	if err := setupLoggers(cfg.LogLevel, cfg.LogTo, cfg.SessionID); err != nil {
+		return fmt.Errorf("setup loggers: %w", err)
+	}
+
 	vm := &VM{
 		cfg: cfg,
 	}
 
-	for _, r := range cfg.Reporters {
-		vm.eventDispatcher.addReporter(r)
-	}
+	vm.eventDispatcher.addReporter(newLegacyReporter(cfg.ReportURL, cfg.RunMode))
+
 	defer vm.emit(EventExit, "")
 
 	if err := cfg.WriteCfg(path); err != nil {

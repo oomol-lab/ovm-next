@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"linuxvm/pkg/define"
-	"linuxvm/pkg/eventreporter"
 	"linuxvm/pkg/librevm"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -55,7 +53,7 @@ var startDocker = cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  define.FlagLogTo,
-			Usage: "custom log file path on host; defaults to /tmp/<session_id>/logs/vm.log when unset",
+			Usage: "custom log file path on host; defaults to /tmp/<session_id>/logs/ovm.log when unset",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagSessionID,
@@ -113,13 +111,12 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 	defer cancel()
 
 	cfg := librevm.DefaultConfig(command.String(define.FlagSessionID)).
+		WithLogLevelAndLogFile(command.String(define.FlagLogLevel), command.String(define.FlagLogTo)).
 		WithMode(librevm.ModeContainer).
 		WithCPUs(int(command.Int8(define.FlagCPUS))).
 		WithMemory(command.Uint64(define.FlagMemoryInMB)).
 		WithNetwork(command.String(define.FlagVNetworkType)).
 		WithProxy(command.Bool(define.FlagUsingSystemProxy)).
-		WithLogLevel(command.String(define.FlagLogLevel)).
-		WithLogTo(command.String(define.FlagLogTo)).
 		WithEnv(command.StringSlice(define.FlagEnvs)...).
 		WithDisk(command.StringSlice(define.FlagRawDisk)...).
 		WithMount(command.StringSlice(define.FlagMount)...).
@@ -128,12 +125,12 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		WithManageAPIFile(command.String(define.FlagManageAPIFile)).
 		WithExportSSHKeyPrivateFile(command.String(define.FlagExportSSHKeyPrivateFile)).
 		WithExportSSHKeyPublicFile(command.String(define.FlagExportSSHKeyPublicFile)).
-		WithEventReporter(eventreporter.NewLegacyReporter(command.String(define.FlagReportEvents), librevm.ModeContainer))
+		WithReportEndpoint(command.String(define.FlagReportEvents))
 
-	// Apply init vmconfig preferences if present.
-	if initCfg, err := librevm.LoadFile(vmConfigFilePath); err == nil {
-		logrus.Infof("[apply-vmconfig] apply vmconfig prefer from: %q", vmConfigFilePath)
-		cfg.MergeFrom(initCfg)
+	cfg.WithReportEndpoint(command.String(define.FlagOVMReportURL)) // compatibility
+
+	if overwriteCfg, err := librevm.LoadFile(vmConfigFilePath); err == nil {
+		cfg.OverwriteCfgFrom(overwriteCfg)
 	}
 
 	vm, err := librevm.New(cfg)
