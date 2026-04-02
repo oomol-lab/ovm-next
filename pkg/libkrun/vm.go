@@ -112,8 +112,11 @@ func (v *VM) Start(ctx context.Context) error {
 // SendSignal writes a signal message to the VM's signal pipe.
 func (v *VM) SendSignal(name string) {
 	if v.files.signalPipeW == nil {
+		// this should be never happened, but we still log it
+		logrus.Errorf("signal pipe not set, send signal to vm not working...")
 		return
 	}
+
 	msg := struct{ SignalName string }{SignalName: name}
 	if b, err := json.Marshal(msg); err == nil {
 		_, _ = v.files.signalPipeW.Write(b)

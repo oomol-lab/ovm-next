@@ -258,6 +258,15 @@ func (vm *VM) WaitAndShutdownMachine(ctx context.Context, cancel context.CancelF
 			case <-ticker.C:
 				if os.Getppid() == 1 {
 					logrus.Info("parent process exited, shutting down machine")
+
+					// we force to exit the ovm after 30 seconds, this should never happen,
+					// but we still log this
+					go func() {
+						<-time.After(30 * time.Second)
+						logrus.Errorf("force to exit ovm, this should not happen")
+						os.Exit(100)
+					}()
+
 					_ = vm.svc.StopVirtualMachine()
 					cancel()
 					return
