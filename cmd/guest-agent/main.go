@@ -162,6 +162,12 @@ func run(ctx context.Context, _ *cli.Command) error {
 	// Now that /sys is available, setup guest-logs port for logging and signal handling
 	setupGuestLogAndSignalPort(ctx)
 
+	go func() {
+		if err := service.StreamDmesg(ctx); err != nil {
+			logrus.Warnf("stream kernel message: %v", err)
+		}
+	}()
+
 	if err := service.MountBlockDevices(ctx, vmc); err != nil {
 		return fmt.Errorf("mount block devices: %w", err)
 	}
