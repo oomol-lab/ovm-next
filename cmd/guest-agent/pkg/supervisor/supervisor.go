@@ -26,6 +26,8 @@ type Config struct {
 	MaxRetries int           // 最大重启次数（0 = 无限）
 	RetryDelay time.Duration // 重启间隔
 
+	MaxRunTimeout time.Duration // 最大运行时间，超时结束进程，重新启动
+
 	StopTimeout time.Duration
 }
 
@@ -80,6 +82,15 @@ func (s *Supervisor) loop(ctx context.Context) {
 }
 
 func (s *Supervisor) runOnce(ctx context.Context) error {
+	var (
+		cancel context.CancelFunc
+	)
+
+	if s.cfg.MaxRunTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, s.cfg.MaxRunTimeout)
+		defer cancel()
+	}
+
 	cmd := exec.CommandContext(ctx, s.cfg.Cmd, s.cfg.Args...)
 	cmd.Env = append(os.Environ(), s.cfg.Env...)
 	cmd.Dir = s.cfg.Dir

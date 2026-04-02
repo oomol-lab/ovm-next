@@ -10,9 +10,6 @@ import (
 
 var servers = []string{
 	"asia.pool.ntp.org",
-	"tw.pool.ntp.org",
-	"north-america.pool.ntp.org",
-	"jp.pool.ntp.org",
 }
 
 func SyncRTCTime(ctx context.Context) error {
@@ -29,6 +26,8 @@ func SyncRTCTime(ctx context.Context) error {
 		Stdout:     StderrWriter(),
 		Restart:    true,
 		RetryDelay: 5 * time.Second,
+
+		MaxRunTimeout: 1 * time.Minute,
 	})
 	sv.Run(ctx)
 	return nil
