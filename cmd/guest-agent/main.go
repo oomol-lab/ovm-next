@@ -163,8 +163,9 @@ func run(ctx context.Context, _ *cli.Command) error {
 	setupGuestLogAndSignalPort(ctx)
 
 	go func() {
-		if err := service.StreamDmesg(ctx); err != nil {
-			logrus.Warnf("stream kernel message: %v", err)
+		if err := service.StreamLogKernelMessage(ctx); err != nil {
+			// log as INFO, because it's not a critical error/waring
+			logrus.Info("[dmesg] log kernel message stop: %v", err)
 		}
 	}()
 
