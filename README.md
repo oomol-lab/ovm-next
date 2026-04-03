@@ -1,4 +1,4 @@
-# ovm
+# ovm next
 
 Lightweight Linux microVM manager backed by [libkrun](https://github.com/containers/libkrun). Boots Linux guests on
 macOS/arm64 and Linux/(arm64|amd64) using Apple Hypervisor or KVM, with optional Podman-compatible container engine
@@ -125,3 +125,6 @@ ovm attach my-session -- podman ps -a
 |-------|-----------------------|
 | macOS | arm64 (Apple Silicon) |
 | Linux | arm64, amd64          |
+
+# Related projects
+- [ovm-next-deps](https://github.com/oomol-lab/ovm-next-deps): Build dependencies for ovm-next
