@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func StreamDmesg(ctx context.Context) error {
+func StreamLogKernelMessage(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "dmesg", "-w")
 
 	stdout, err := cmd.StdoutPipe()
@@ -31,7 +31,7 @@ func StreamDmesg(ctx context.Context) error {
 			logrus.Info(scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			logrus.Warnf("stdout scanner error: %v", err)
+			logrus.Warnf("dmesg stdout scanner error: %v", err)
 		}
 	}()
 
@@ -41,7 +41,7 @@ func StreamDmesg(ctx context.Context) error {
 			logrus.Info(scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			logrus.Warnf("stderr scanner error: %v", err)
+			logrus.Warnf("dmesg stderr scanner error: %v", err)
 		}
 	}()
 
