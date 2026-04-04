@@ -203,11 +203,6 @@ func dockerEngineMode(ctx context.Context, vmc *define.Machine) error {
 		return service.StartGuestSSHServer(ctx, vmc)
 	})
 
-	g.Go(func() error {
-		logrus.Info("starting syncing time loop")
-		return service.SyncRTCTime(ctx)
-	})
-
 	// Run readiness probes outside the errgroup. Probe failures are logged
 	// internally and do not affect service lifecycle.
 	go func() {
