@@ -17,7 +17,7 @@ ovm start [flags]
 |----------------------------|----------|-----------------------------------|------------------------------------------------------|
 | `--cpus`                   | int      | 宿主机 CPU 数                         | vCPU 核心数                                             |
 | `--memory`                 | uint64   | 宿主机可用内存                           | 虚拟机内存（MB），最低 512                                     |
-| `--id`                     | string   |                                   | 会话名称，工作目录为 `/tmp/<id>`                               |
+| `--id`                     | string   |                                   | 会话名称，工作目录为 `~/.cache/ovm-krun/<id>`                               |
 | `--envs`                   | string[] |                                   | 环境变量（`KEY=VALUE`），可多次指定                              |
 | `--raw-disk`               | string[] |                                   | 挂载 ext4 裸磁盘（`<路径>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`），可多次指定 |
 | `--mount`                  | string[] |                                   | VirtIO-FS 共享目录（`/宿主路径:/客户路径[,ro]`），可多次指定             |
@@ -97,7 +97,7 @@ ovm start --id dev --system-proxy
 ovm attach [--pty] <session-name> [-- <command> [args...]]
 ```
 
-通过 SSH 连接到已运行的虚拟机会话。会话名称对应 `/tmp/<name>`。
+通过 SSH 连接到已运行的虚拟机会话。会话名称对应 `~/.cache/ovm-krun/<name>`。
 
 | 参数            | 类型     | 默认值    | 说明                |
 |---------------|--------|--------|-------------------|

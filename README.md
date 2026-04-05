@@ -19,7 +19,7 @@ process shuts down the VM.
 |----------------------------|----------|-----------------------------------|-------------------------------------------------------------------------------------------------|
 | `--cpus`                   | int      | host CPU count                    | Number of vCPU cores                                                                            |
 | `--memory`                 | uint64   | host available                    | VM memory in MB (min 512)                                                                       |
-| `--id`                     | string   |                                   | Session name; workspace is `/tmp/<id>`                                                          |
+| `--id`                     | string   |                                   | Session name; workspace is `~/.cache/ovm-krun/<id>`                                                          |
 | `--envs`                   | string[] |                                   | Environment variables (`KEY=VALUE`), repeatable                                                 |
 | `--raw-disk`               | string[] |                                   | Attach ext4 disk (`<path>[,version=<v>][,uuid=<u>][,mnt=<guest-path>]`), repeatable |
 | `--mount`                  | string[] |                                   | VirtIO-FS shared directory (`/host:/guest[,ro]`), repeatable                                    |
@@ -99,7 +99,7 @@ Behavior matrix:
 ovm attach [--pty] <session-name> [-- <command> [args...]]
 ```
 
-Connects to a running VM session via SSH. The session name maps to `/tmp/<name>`.
+Connects to a running VM session via SSH. The session name maps to `~/.cache/ovm-krun/<name>`.
 
 | Flag          | Type   | Default | Description                                      |
 |---------------|--------|---------|--------------------------------------------------|
