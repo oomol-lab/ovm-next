@@ -30,7 +30,7 @@ func generateCompatScripts() error {
 		return fmt.Errorf("failed to create podman init rc file: %s", err)
 	}
 
-	return nil
+	return os.WriteFile("/opt/ssh_auth", []byte{}, 0755)
 }
 
 func StartGuestPodmanService(ctx context.Context, vmc *define.Machine) error {

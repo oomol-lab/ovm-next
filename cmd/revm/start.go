@@ -53,11 +53,11 @@ var startDocker = cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  define.FlagLogTo,
-			Usage: "custom log file path on host; defaults to /tmp/<session_id>/logs/ovm.log when unset",
+			Usage: "custom log file path on host; defaults to ~/.cache/ovm-krun/<session_id>/logs/ovm.log when unset",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagSessionID,
-			Usage: "session name; used to derive the workspace directory (/tmp/<session_id>); sessions with the same name are mutually exclusive via flock",
+			Usage: "session name; used to derive the workspace directory (~/.cache/ovm-krun/<session_id>); sessions with the same name are mutually exclusive via flock",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagVarDisk,
@@ -65,11 +65,11 @@ var startDocker = cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  define.FlagPodmanProxyAPIFile,
-			Usage: "custom Unix socket path for the host-side Podman API proxy; defaults to /tmp/<session_id>/socks/podman-api.sock",
+			Usage: "custom Unix socket path for the host-side Podman API proxy; defaults to ~/.cache/ovm-krun/<session_id>/socks/podman-api.sock",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagManageAPIFile,
-			Usage: "custom Unix socket path for the host-side VM management API; defaults to /tmp/<session_id>/socks/vmctl.sock",
+			Usage: "custom Unix socket path for the host-side VM management API; defaults to ~/.cache/ovm-krun/<session_id>/socks/vmctl.sock",
 		},
 		&cli.StringFlag{
 			Name:  define.FlagExportSSHKeyPrivateFile,

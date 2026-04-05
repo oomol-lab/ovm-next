@@ -470,7 +470,11 @@ func getDefaultVarDiskPath(id string) string {
 }
 
 func getSessionDir(name string) string {
-	return fmt.Sprintf("/tmp/%s", name)
+	dir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join("/tmp", name)
+	}
+	return filepath.Join(dir, ".cache", "ovm-krun", name)
 }
 
 func getLogFilePath(id string) string {

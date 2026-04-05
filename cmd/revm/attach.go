@@ -16,7 +16,7 @@ var AttachConsole = cli.Command{
 	Name:        define.SubCommandStop,
 	Usage:       "attach to a running VM and execute a command over SSH",
 	UsageText:   "attach [--pty] <session-name> [-- <command> [args...]]",
-	Description: "connect to a running VM session by name via SSH; the session-name maps to /tmp/<name>; launches an interactive shell (--pty) or runs the specified command non-interactively; defaults to /bin/sh if no command is given",
+	Description: "connect to a running VM session by name via SSH; the session-name maps to ~/.cache/ovm-krun/<name>; launches an interactive shell (--pty) or runs the specified command non-interactively; defaults to /bin/sh if no command is given",
 	Action:      attachConsole,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
