@@ -54,6 +54,7 @@ type Config struct {
 
 	Network                      string   `toml:"network,omitempty"         json:"network,omitempty"` // "gvisor" | "tsi"
 	Mounts                       []string `toml:"mounts,omitempty"          json:"mounts,omitempty"`  // "/host:/guest[,ro]"
+	ForwardUnix                  []string `toml:"forward_unix,omitempty"    json:"forwardUnix,omitempty"`
 	PodmanProxyAPIFile           string   `toml:"podman_proxy_api_file,omitempty"   json:"podmanProxyAPIFile,omitempty"`
 	ManageAPIFile                string   `toml:"manage_api_file,omitempty"         json:"manageAPIFile,omitempty"`
 	SSHKeyPrivateFileSymbolLinks string   `toml:"ssh_key_private_file_symbol_links,omitempty" json:"SSHKeyPrivateFileSymbolLinks,omitempty"`
@@ -274,6 +275,13 @@ func (c *Config) WithMount(specs ...string) *Config {
 	return c
 }
 
+func (c *Config) WithForwardUnix(specs ...string) *Config {
+	if len(specs) > 0 {
+		c.ForwardUnix = append(c.ForwardUnix, specs...)
+	}
+	return c
+}
+
 func (c *Config) WithDisk(specs ...string) *Config {
 	if len(specs) == 0 {
 		return c
@@ -370,6 +378,9 @@ func (c *Config) OverwriteCfgFrom(other *Config) {
 
 	if len(other.Mounts) > 0 {
 		c.Mounts = append([]string(nil), other.Mounts...)
+	}
+	if len(other.ForwardUnix) > 0 {
+		c.ForwardUnix = append([]string(nil), other.ForwardUnix...)
 	}
 
 	if v := strings.TrimSpace(other.PodmanProxyAPIFile); v != "" {

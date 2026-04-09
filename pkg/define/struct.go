@@ -22,16 +22,17 @@ type MachineSpec struct {
 
 	VirtualNetworkMode VNetMode `json:"virtualNetworkMode,omitempty"`
 
-	LogFile           string            `json:"logFile,omitempty"`
-	Mounts            []Mount           `json:"mounts,omitempty"`
-	SSHInfo           SSHInfo           `json:"sshInfo,omitempty"`
-	PodmanInfo        PodmanInfo        `json:"podmanInfo,omitempty"` // 仅仅在 docker mode 下有意义
-	VMCtlAddr         string            `json:"vmCtlAddr,omitempty"`
-	RunMode           string            `json:"runMode,omitempty"`
-	IgnitionServerCfg IgnitionServerCfg `json:"ignitionServerCfg,omitempty"`
-	GuestAgentCfg     GuestAgentCfg     `json:"guestAgentCfg,omitempty"`
-	Cmdline           Cmdline           `json:"cmdline,omitempty"` // 仅仅在 rootfs mode 有意义
-	ProxySetting      ProxySetting      `json:"systemProxy,omitempty"`
+	LogFile            string            `json:"logFile,omitempty"`
+	Mounts             []Mount           `json:"mounts,omitempty"`
+	SSHInfo            SSHInfo           `json:"sshInfo,omitempty"`
+	PodmanInfo         PodmanInfo        `json:"podmanInfo,omitempty"` // 仅仅在 docker mode 下有意义
+	VMCtlAddr          string            `json:"vmCtlAddr,omitempty"`
+	RunMode            string            `json:"runMode,omitempty"`
+	IgnitionServerCfg  IgnitionServerCfg `json:"ignitionServerCfg,omitempty"`
+	GuestAgentCfg      GuestAgentCfg     `json:"guestAgentCfg,omitempty"`
+	Cmdline            Cmdline           `json:"cmdline,omitempty"` // 仅仅在 rootfs mode 有意义
+	ProxySetting       ProxySetting      `json:"systemProxy,omitempty"`
+	UnixSocketForwards map[string]string `json:"UnixSocketForwards"` // guest listen a unix socks, and forward to host socks
 
 	TTY bool `json:"TTY"`
 }

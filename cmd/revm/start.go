@@ -79,6 +79,10 @@ var startDocker = cli.Command{
 			Name:  define.FlagExportSSHKeyPublicFile,
 			Usage: "file path to symlink the generated SSH public key to",
 		},
+		&cli.StringSliceFlag{
+			Name:  define.FlagForwardUnix,
+			Usage: "forward guest unix socket to host unix socket via vsock mapping; format: guest-path:host-path",
+		},
 		// legacy hidden flags set
 		&cli.StringFlag{
 			Name:   define.FlagOVMWorkspace,
@@ -120,6 +124,7 @@ func dockerLifeCycle(_ context.Context, command *cli.Command) error {
 		WithEnv(command.StringSlice(define.FlagEnvs)...).
 		WithDisk(command.StringSlice(define.FlagRawDisk)...).
 		WithMount(command.StringSlice(define.FlagMount)...).
+		WithForwardUnix(command.StringSlice(define.FlagForwardUnix)...).
 		WithVarDataDisk(command.String(define.FlagVarDisk)).
 		WithPodmanProxyAPIFile(command.String(define.FlagPodmanProxyAPIFile)).
 		WithManageAPIFile(command.String(define.FlagManageAPIFile)).
