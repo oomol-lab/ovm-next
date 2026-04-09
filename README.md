@@ -30,6 +30,7 @@ process shuts down the VM.
 | `--manage-api`             | string   | `/tmp/<id>/socks/vmctl.sock`      | Unix socket for VM management API                                                               |
 | `--ssh-private-key`        | string   |                                   | Symlink path for generated SSH private key                                                      |
 | `--ssh-public-key`         | string   |                                   | Symlink path for generated SSH public key                                                       |
+| `--forward-unix`           | string[] |                                   | Forward guest unix socket to host unix socket (`<guest-path>:<host-path>`), repeatable         |
 | `--report-url`             | string   |                                   | HTTP endpoint for lifecycle events (`unix:///path` or `tcp://host:port`)                        |
 | `--log-level`              | string   | `info`                            | Log verbosity: trace, debug, info, warn, error, fatal, panic                                    |
 | `--log-to`                 | string   | `/tmp/<id>/logs/vm.log`           | Custom log file path                                                                            |
@@ -47,6 +48,14 @@ ovm start --id dev \
 
 # Forward macOS system proxy into the guest
 ovm start --id dev --system-proxy
+
+# Forward one guest unix socket to host unix socket
+ovm start --id dev --forward-unix /tmp/a.sock:/tmp/a.sock
+
+# Multiple unix socket forwards
+ovm start --id dev \
+  --forward-unix /tmp/a.sock:/tmp/a.sock \
+  --forward-unix /tmp/b.sock:/tmp/b.sock
 ```
 
 #### `--raw-disk` Usage and Behavior

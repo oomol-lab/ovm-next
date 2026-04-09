@@ -445,6 +445,15 @@ func buildMachine(ctx context.Context, cfg Config, workspacePath string) (mc *de
 		}
 	}
 
+	forwardRules, err := parseForwardUnixRules(cfg.ForwardUnix)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse unix forward rules: %w", err)
+	}
+	if _, err := define.BuildUnixSocketForwardRoutes(forwardRules); err != nil {
+		return nil, nil, fmt.Errorf("normalize unix forward rules: %w", err)
+	}
+	mBuilder.UnixSocketForwards = forwardRules
+
 	if err := mBuilder.configureGuestAgent(ctx, cfg.Env); err != nil {
 		return nil, nil, fmt.Errorf("configure guest agent: %w", err)
 	}

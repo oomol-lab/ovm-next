@@ -50,5 +50,27 @@ func (v *VM) setupVSock() error {
 	}
 
 	logrus.Infof("vsock port %d → %s", define.DefaultVSockPort, addr.Path)
+
+	forwardRoutes, err := define.BuildUnixSocketForwardRoutes(v.cfg.UnixSocketForwards)
+	if err != nil {
+		return err
+	}
+
+	for _, route := range forwardRoutes {
+		path := cstr(route.HostPath)
+		ret := C.krun_add_vsock_port2(
+			C.uint32_t(v.ctxID),
+			C.uint32_t(route.VSockPort),
+			path,
+			false,
+		)
+		free(path)
+		if ret != 0 {
+			return errCode(ret)
+		}
+
+		logrus.Infof("vsock port %d → unix://%s", route.VSockPort, route.HostPath)
+	}
+
 	return nil
 }

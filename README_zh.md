@@ -28,6 +28,7 @@ ovm start [flags]
 | `--manage-api`             | string   | `/tmp/<id>/socks/vmctl.sock`      | 虚拟机管理 API Unix 套接字路径                                 |
 | `--ssh-private-key`        | string   |                                   | SSH 私钥符号链接路径                                         |
 | `--ssh-public-key`         | string   |                                   | SSH 公钥符号链接路径                                         |
+| `--forward-unix`           | string[] |                                   | 将 guest unix socket 转发到 host unix socket（`<guest-path>:<host-path>`），可多次指定 |
 | `--report-url`             | string   |                                   | 生命周期事件 HTTP 端点（`unix:///路径` 或 `tcp://地址:端口`）         |
 | `--log-level`              | string   | `info`                            | 日志级别：trace, debug, info, warn, error, fatal, panic   |
 | `--log-to`                 | string   | `/tmp/<id>/logs/vm.log`           | 自定义日志文件路径                                            |
@@ -45,6 +46,14 @@ ovm start --id dev \
 
 # 转发 macOS 系统代理
 ovm start --id dev --system-proxy
+
+# 转发单个 unix socket
+ovm start --id dev --forward-unix /tmp/a.sock:/tmp/a.sock
+
+# 多个 unix socket 转发
+ovm start --id dev \
+  --forward-unix /tmp/a.sock:/tmp/a.sock \
+  --forward-unix /tmp/b.sock:/tmp/b.sock
 ```
 
 #### `--raw-disk` 用法与行为

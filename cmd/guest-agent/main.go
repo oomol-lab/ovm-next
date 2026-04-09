@@ -176,6 +176,10 @@ func run(ctx context.Context, _ *cli.Command) error {
 	if err := service.MountVirtiofs(ctx, vmc); err != nil {
 		return fmt.Errorf("mount virtiofs: %w", err)
 	}
+
+	// Start unix socket forwarders before long-running services.
+	service.StartUnixForwarders(ctx, vmc)
+
 	go func() {
 		service.WaitAndShutdown()
 	}()
