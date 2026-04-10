@@ -12,6 +12,7 @@ import (
 	sshsvc "linuxvm/pkg/service/ssh"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"syscall"
@@ -37,6 +38,8 @@ type VM struct {
 	eventDispatcher eventDispatcher
 
 	seq atomic.Uint64
+
+	ooSSHAgent *sshsvc.OOSSHAgentService
 }
 
 // newProvider creates a libkrun Provider for the current platform.
@@ -94,6 +97,10 @@ func New(cfg *Config) (*VM, error) {
 // disk images, libkrun provider, and host services. Called once at the
 // start of Run(). On failure it cleans up after itself.
 func (vm *VM) init(ctx context.Context) error {
+	if err := vm.configureOOSSHAgentForward(); err != nil {
+		return err
+	}
+
 	mc, cleanup, err := buildMachine(ctx, *vm.cfg, vm.sessionDir)
 	if err != nil {
 		return fmt.Errorf("build machine: %w", err)
@@ -115,6 +122,48 @@ func (vm *VM) init(ctx context.Context) error {
 	vm.svc = lifecycle.NewHostServices(vmp)
 	vm.cleanup = cleanup
 	return nil
+}
+
+func (vm *VM) configureOOSSHAgentForward() error {
+	localSocket := filepath.Join(vm.sessionDir, "socks", "oo-ssh-agent.sock")
+	service := sshsvc.NewOOSSHAgentService(localSocket)
+	if !service.Enabled() {
+		return nil
+	}
+
+	merged, shouldStart, existingHostPath, err := mergeAutoForwardUnixRule(
+		vm.cfg.ForwardUnix,
+		service.GuestSocketPath(),
+		service.LocalSocketPath(),
+	)
+	if err != nil {
+		return fmt.Errorf("merge ssh agent forward unix rules: %w", err)
+	}
+	vm.cfg.ForwardUnix = merged
+
+	if !shouldStart {
+		logrus.Infof("skip builtin oo ssh agent: guest socket %q already forwarded to %q by user config", service.GuestSocketPath(), existingHostPath)
+		return nil
+	}
+
+	vm.ooSSHAgent = service
+	return nil
+}
+
+func mergeAutoForwardUnixRule(specs []string, guestPath, hostPath string) ([]string, bool, string, error) {
+	forwardRules, err := parseForwardUnixRules(specs)
+	if err != nil {
+		return nil, false, "", err
+	}
+
+	if existingHostPath, exists := forwardRules[guestPath]; exists {
+		if existingHostPath == hostPath {
+			return specs, true, existingHostPath, nil
+		}
+		return specs, false, existingHostPath, nil
+	}
+
+	return append(specs, fmt.Sprintf("%s:%s", guestPath, hostPath)), true, "", nil
 }
 
 // createUserSymlinks links session-internal resources to user-specified paths.
@@ -156,6 +205,8 @@ func (vm *VM) RunDocker(ctx context.Context) error {
 	vm.emit(EventVMStarting, "starting vm in container mode")
 
 	g, ctx := errgroup.WithContext(ctx)
+
+	vm.startOOSSHAgent(ctx)
 
 	// Start ignition server
 	g.Go(func() error {
@@ -208,6 +259,18 @@ func (vm *VM) RunDocker(ctx context.Context) error {
 		<-svcErrCh
 		return err
 	}
+}
+
+func (vm *VM) startOOSSHAgent(ctx context.Context) {
+	if vm.ooSSHAgent == nil {
+		return
+	}
+
+	go func() {
+		if err := vm.ooSSHAgent.Run(ctx); err != nil {
+			logrus.Warnf("oo ssh agent exited with error: %v", err)
+		}
+	}()
 }
 
 // monitorReadinessEvents monitors readiness channels and emits events.
