@@ -58,6 +58,10 @@ ovm start --id dev \
   --forward-unix /tmp/b.sock:/tmp/b.sock
 ```
 
+Built-in SSH agent forwarding:
+- If host `SSH_AUTH_SOCK` is available, ovm also forwards guest `/opt/ssh_auth/oo-ssh-agent.sock` to host `~/.cache/ovm-krun/<id>/socks/oo-ssh-agent.sock`.
+- If user already configures `/opt/ssh_auth/oo-ssh-agent.sock` via `--forward-unix`, user config takes precedence and built-in forwarding is skipped.
+
 #### `--raw-disk` Usage and Behavior
 
 Usage:
@@ -94,13 +98,15 @@ Fixed/default semantics:
 - `mnt` is fixed to `/var`
 
 Behavior matrix:
+- `version compare = same`: version xattr exists and equals expected version
+- `version compare = different`: version xattr is missing or differs from expected version
 
-| var-disk path | version xattr | version compare | action |
+| var-disk path | UUID check | version compare | action |
 |---|---|---|---|
 | not exists | N/A | N/A | create disk with fixed UUID and write version xattr |
-| exists | present | same | no regenerate |
-| exists | present | different | regenerate and write latest version xattr |
-| exists | missing | treat as mismatch | regenerate and write latest version xattr |
+| exists | not `define.VarDataDiskUUID` | any | regenerate with fixed UUID and write version xattr |
+| exists | is `define.VarDataDiskUUID` | same | no regenerate |
+| exists | is `define.VarDataDiskUUID` | different | regenerate and write latest version xattr |
 
 ### `attach` — Attach to a running VM
 

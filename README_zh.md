@@ -56,6 +56,10 @@ ovm start --id dev \
   --forward-unix /tmp/b.sock:/tmp/b.sock
 ```
 
+内置 SSH agent 转发：
+- 当宿主机存在 `SSH_AUTH_SOCK` 时，ovm 会额外转发 guest `/opt/ssh_auth/oo-ssh-agent.sock` 到 host `~/.cache/ovm-krun/<id>/socks/oo-ssh-agent.sock`。
+- 若用户已通过 `--forward-unix` 配置 `/opt/ssh_auth/oo-ssh-agent.sock`，则以用户配置为准，内置转发会跳过。
+
 #### `--raw-disk` 用法与行为
 
 用法：
@@ -92,13 +96,15 @@ ovm start --id dev \
 - `mnt` 固定 `/var`
 
 行为矩阵：
+- `version 对比=相同`：version xattr 存在且与期望版本一致
+- `version 对比=不同`：version xattr 缺失或与期望版本不一致
 
-| var-disk path | version xattr | version 对比 | 动作 |
+| var-disk path | UUID 检查 | version 对比 | 动作 |
 |---|---|---|---|
 | 不存在 | N/A | N/A | 创建磁盘，使用固定 UUID，并写 version xattr |
-| 存在 | 有 | 相同 | 不重建 |
-| 存在 | 有 | 不同 | 重建并写最新 version xattr |
-| 存在 | 无 | 视为不一致 | 重建并写最新 version xattr |
+| 存在 | 不等于 `define.VarDataDiskUUID` | 任意 | 以固定 UUID 重建，并写 version xattr |
+| 存在 | 等于 `define.VarDataDiskUUID` | 相同 | 不重建 |
+| 存在 | 等于 `define.VarDataDiskUUID` | 不同 | 重建并写最新 version xattr |
 
 ### `attach` — 连接到运行中的虚拟机
 
