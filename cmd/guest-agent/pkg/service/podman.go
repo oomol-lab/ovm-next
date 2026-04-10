@@ -30,8 +30,7 @@ func generateCompatScripts() error {
 		return fmt.Errorf("failed to create podman init rc file: %s", err)
 	}
 
-	// old ssh auth sock dir, for compatibility
-	return os.MkdirAll("/opt/ssh_auth", 0755)
+	return nil
 }
 
 func StartGuestPodmanService(ctx context.Context, vmc *define.Machine) error {
