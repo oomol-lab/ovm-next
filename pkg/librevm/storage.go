@@ -216,6 +216,19 @@ func (v *machineBuilder) reconcileVarRAWDisk(ctx context.Context, diskSpec *RawD
 		return v.generateRAWDisk(ctx, rawDiskPath, define.VarDataDiskUUID, versionXattrs)
 	}
 
+	diskMgr, err := disk.NewBlkManager()
+	if err != nil {
+		return err
+	}
+	info, err := diskMgr.Inspect(ctx, rawDiskPath)
+	if err != nil {
+		return fmt.Errorf("inspect var disk %q failed: %w", rawDiskPath, err)
+	}
+	if info.UUID != define.VarDataDiskUUID {
+		logrus.Warnf("var disk uuid mismatch path=%q actual=%q expected=%q regenerating", rawDiskPath, info.UUID, define.VarDataDiskUUID)
+		return v.recreateRAWDisk(ctx, rawDiskPath, define.VarDataDiskUUID, versionXattrs)
+	}
+
 	shouldRegenerate, hasVersionXattr, err := v.needsDiskRegeneration(ctx, rawDiskPath, diskSpec.Version)
 	if err != nil {
 		return err
