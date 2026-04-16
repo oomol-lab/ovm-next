@@ -3,6 +3,8 @@ package service
 import (
 	"bufio"
 	"context"
+	"errors"
+	"os"
 	"os/exec"
 
 	"github.com/sirupsen/logrus"
@@ -30,7 +32,7 @@ func StreamLogKernelMessage(ctx context.Context) error {
 		for scanner.Scan() {
 			logrus.Info(scanner.Text())
 		}
-		if err := scanner.Err(); err != nil {
+		if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 			logrus.Warnf("dmesg stdout scanner error: %v", err)
 		}
 	}()
@@ -40,7 +42,7 @@ func StreamLogKernelMessage(ctx context.Context) error {
 		for scanner.Scan() {
 			logrus.Info(scanner.Text())
 		}
-		if err := scanner.Err(); err != nil {
+		if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 			logrus.Warnf("dmesg stderr scanner error: %v", err)
 		}
 	}()
