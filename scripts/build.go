@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const assetsBase = "https://github.com/oomol-lab/ovm-next-deps/releases/download/v2.0.13"
+const assetsBase = "https://github.com/oomol-lab/ovm-next-deps/releases/download/v2.0.16"
 
 // run executes a command, inheriting stdout/stderr.
 // those vars are appended to the current environment.

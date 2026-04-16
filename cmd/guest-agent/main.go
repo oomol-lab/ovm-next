@@ -165,7 +165,7 @@ func run(ctx context.Context, _ *cli.Command) error {
 	go func() {
 		if err := service.StreamLogKernelMessage(ctx); err != nil {
 			// log as INFO, because it's not a critical error/waring
-			logrus.Info("[dmesg] log kernel message stop: %v", err)
+			logrus.Infof("[dmesg] log kernel message stop: %v", err)
 		}
 	}()
 
