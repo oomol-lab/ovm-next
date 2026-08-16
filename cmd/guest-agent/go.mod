@@ -3,7 +3,7 @@ module guestAgent
 go 1.25.5
 
 require (
-	github.com/insomniacslk/dhcp v0.0.0-20251020182700-175e84fbb167
+	github.com/insomniacslk/dhcp v0.0.0-20260719225207-c76316d4aa82
 	github.com/mdlayher/vsock v1.2.1
 	github.com/sirupsen/logrus v1.9.5-0.20260121091959-524506f8912c
 	github.com/urfave/cli/v3 v3.6.1
